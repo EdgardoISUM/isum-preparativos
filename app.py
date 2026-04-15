@@ -2,8 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 from functools import wraps
 import os, json, time
 from datetime import datetime, timedelta
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import pg8000.native
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "isum_secret_cambiar")
@@ -26,32 +25,50 @@ DEFAULT_MASTER = {
     "honorarios": ["$500","$750","$1000","$1250","$1500","$2000"],
 }
 
-def get_conn():
-    url = DATABASE_URL
+def parse_db_url(url):
+    """Parsea postgresql://user:pass@host:port/dbname"""
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql://", 1)
-    return psycopg2.connect(url, cursor_factory=RealDictCursor)
+    url = url.replace("postgresql://", "")
+    user_pass, rest = url.split("@", 1)
+    user, password   = user_pass.split(":", 1)
+    host_port, dbname = rest.split("/", 1)
+    if ":" in host_port:
+        host, port = host_port.split(":", 1)
+        port = int(port)
+    else:
+        host = host_port
+        port = 5432
+    return {"user": user, "password": password, "host": host, "port": port, "database": dbname}
+
+def get_conn():
+    params = parse_db_url(DATABASE_URL)
+    return pg8000.native.Connection(
+        user=params["user"], password=params["password"],
+        host=params["host"], port=params["port"],
+        database=params["database"], ssl_context=True
+    )
 
 def init_db():
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS seminarios (
-                    id      SERIAL PRIMARY KEY,
-                    datos   JSONB NOT NULL,
-                    creado  TIMESTAMP DEFAULT NOW(),
-                    updated TIMESTAMP DEFAULT NOW()
-                );
-                CREATE TABLE IF NOT EXISTS master (
-                    id    SERIAL PRIMARY KEY,
-                    datos JSONB NOT NULL
-                );
-            """)
-            cur.execute("SELECT COUNT(*) as n FROM master")
-            if cur.fetchone()["n"] == 0:
-                cur.execute("INSERT INTO master (datos) VALUES (%s)",
-                            [json.dumps(DEFAULT_MASTER)])
-        conn.commit()
+    conn = get_conn()
+    conn.run("""
+        CREATE TABLE IF NOT EXISTS seminarios (
+            id      SERIAL PRIMARY KEY,
+            datos   TEXT NOT NULL,
+            creado  TIMESTAMP DEFAULT NOW(),
+            updated TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    conn.run("""
+        CREATE TABLE IF NOT EXISTS master (
+            id    SERIAL PRIMARY KEY,
+            datos TEXT NOT NULL
+        )
+    """)
+    rows = conn.run("SELECT COUNT(*) as n FROM master")
+    if rows[0][0] == 0:
+        conn.run("INSERT INTO master (datos) VALUES (:d)", d=json.dumps(DEFAULT_MASTER))
+    conn.close()
 
 for intento in range(5):
     try:
@@ -61,64 +78,61 @@ for intento in range(5):
         else: print(f"ERROR init_db: {e}")
 
 def get_master():
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT datos FROM master ORDER BY id LIMIT 1")
-            row = cur.fetchone()
-            return row["datos"] if row else DEFAULT_MASTER
+    try:
+        conn = get_conn()
+        rows = conn.run("SELECT datos FROM master ORDER BY id LIMIT 1")
+        conn.close()
+        return json.loads(rows[0][0]) if rows else DEFAULT_MASTER
+    except:
+        return DEFAULT_MASTER
 
 def save_master(data):
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id FROM master ORDER BY id LIMIT 1")
-            row = cur.fetchone()
-            if row:
-                cur.execute("UPDATE master SET datos=%s WHERE id=%s",
-                            [json.dumps(data), row["id"]])
-            else:
-                cur.execute("INSERT INTO master (datos) VALUES (%s)", [json.dumps(data)])
-        conn.commit()
+    conn = get_conn()
+    rows = conn.run("SELECT id FROM master ORDER BY id LIMIT 1")
+    if rows:
+        conn.run("UPDATE master SET datos=:d WHERE id=:i", d=json.dumps(data), i=rows[0][0])
+    else:
+        conn.run("INSERT INTO master (datos) VALUES (:d)", d=json.dumps(data))
+    conn.close()
 
 def get_seminarios():
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id, datos FROM seminarios ORDER BY id")
-            rows = cur.fetchall()
-            result = []
-            for r in rows:
-                d = dict(r["datos"])
-                d["_db_id"] = r["id"]
-                result.append(d)
-            return result
+    try:
+        conn = get_conn()
+        rows = conn.run("SELECT id, datos FROM seminarios ORDER BY id")
+        conn.close()
+        result = []
+        for r in rows:
+            d = json.loads(r[1])
+            d["_db_id"] = r[0]
+            result.append(d)
+        return result
+    except:
+        return []
 
 def get_seminario_by_dbid(db_id):
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id, datos FROM seminarios WHERE id=%s", [db_id])
-            row = cur.fetchone()
-            if row:
-                d = dict(row["datos"])
-                d["_db_id"] = row["id"]
-                return d
+    conn = get_conn()
+    rows = conn.run("SELECT id, datos FROM seminarios WHERE id=:i", i=db_id)
+    conn.close()
+    if rows:
+        d = json.loads(rows[0][1])
+        d["_db_id"] = rows[0][0]
+        return d
     return None
 
 def save_seminario(data, db_id=None):
     data_clean = {k: v for k, v in data.items() if k != "_db_id"}
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            if db_id:
-                cur.execute("UPDATE seminarios SET datos=%s, updated=NOW() WHERE id=%s",
-                            [json.dumps(data_clean), db_id])
-            else:
-                cur.execute("INSERT INTO seminarios (datos) VALUES (%s)",
-                            [json.dumps(data_clean)])
-        conn.commit()
+    conn = get_conn()
+    if db_id:
+        conn.run("UPDATE seminarios SET datos=:d, updated=NOW() WHERE id=:i",
+                 d=json.dumps(data_clean), i=db_id)
+    else:
+        conn.run("INSERT INTO seminarios (datos) VALUES (:d)", d=json.dumps(data_clean))
+    conn.close()
 
 def delete_seminario(db_id):
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("DELETE FROM seminarios WHERE id=%s", [db_id])
-        conn.commit()
+    conn = get_conn()
+    conn.run("DELETE FROM seminarios WHERE id=:i", i=db_id)
+    conn.close()
 
 def parse_date(s):
     for fmt in ("%d-%m-%Y","%d/%m/%Y","%d-%m-%y","%d/%m/%y"):
@@ -219,8 +233,7 @@ def admin_guardar():
             lineas = [l.strip() for l in valor.splitlines() if l.strip()]
             nuevos = [i for i in lineas if i not in master[seccion]]
             master[seccion].extend(nuevos)
-            flash(f"{len(nuevos)} registros importados y grabados.", "ok")
-
+            flash(f"{len(nuevos)} registros importados.", "ok")
     elif seccion == "paises":
         pais = request.form.get("pais","").strip()
         if accion == "agregar_pais" and valor and valor not in master["paises"]:
@@ -237,7 +250,7 @@ def admin_guardar():
             lineas = [l.strip() for l in valor.splitlines() if l.strip()]
             nuevos = [i for i in lineas if i not in master["paises"][pais]]
             master["paises"][pais].extend(nuevos)
-            flash(f"{len(nuevos)} sedes importadas y grabadas.", "ok")
+            flash(f"{len(nuevos)} sedes importadas.", "ok")
 
     save_master(master)
     flash("Datos guardados correctamente.", "ok")
