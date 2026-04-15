@@ -1,0 +1,193 @@
+==============================================================
+  ISUM WEB – Deploy con Supabase (base de datos GRATIS y PERMANENTE)
+             + Render (servidor web gratis)
+==============================================================
+
+RESULTADO FINAL:
+  - URL tipo: https://isum-preparativos.onrender.com
+  - Base de datos PostgreSQL en Supabase: GRATIS y sin limite de tiempo
+  - Datos NUNCA se pierden
+
+TIEMPO ESTIMADO: 20-30 minutos la primera vez
+
+==============================================================
+PARTE 1 – CREAR LA BASE DE DATOS EN SUPABASE
+==============================================================
+
+PASO 1 – Crear cuenta en Supabase
+--------------------------------------------------------------
+1. Andá a supabase.com
+2. Clic en "Start your project" (arriba a la derecha)
+3. Registrate con tu cuenta de GitHub o con email
+4. Verificá tu email si te piden confirmación
+
+PASO 2 – Crear un proyecto nuevo
+--------------------------------------------------------------
+1. Una vez adentro, clic en "New project"
+2. Completá:
+     Organization:    (la que aparece por defecto)
+     Name:            isum-preparativos
+     Database Password: elegí una contraseña segura y GUARDALA
+                        (ej: ISUMdb2024!)
+     Region:          South America (São Paulo)  ← más cercano
+3. Clic en "Create new project"
+4. Esperá 1-2 minutos mientras se crea (ves una barra de progreso)
+
+PASO 3 – Obtener la URL de conexión
+--------------------------------------------------------------
+1. En el menú izquierdo clic en el ícono de engranaje "Project Settings"
+2. Clic en "Database" (en el menú de Settings)
+3. Bajá hasta la sección "Connection string"
+4. En el selector elegí "URI"
+5. Vas a ver algo así:
+     postgresql://postgres:[YOUR-PASSWORD]@db.xxxxx.supabase.co:5432/postgres
+6. Reemplazá [YOUR-PASSWORD] con la contraseña que pusiste en el Paso 2
+7. COPIÁ esa URL completa — la vas a necesitar en la Parte 3
+
+   EJEMPLO:
+   postgresql://postgres:ISUMdb2024!@db.abcdefgh.supabase.co:5432/postgres
+
+==============================================================
+PARTE 2 – SUBIR EL CÓDIGO A GITHUB
+==============================================================
+
+PASO 4 – Crear cuenta en GitHub (si no tenés)
+--------------------------------------------------------------
+1. Andá a github.com
+2. Clic en "Sign up" y creá una cuenta gratuita
+3. Verificá tu email
+
+PASO 5 – Crear repositorio y subir archivos
+--------------------------------------------------------------
+1. En github.com, clic en "+" (arriba a la derecha) → "New repository"
+2. Completá:
+     Repository name: isum-preparativos
+     Visibility:      Public
+3. Clic en "Create repository"
+4. En la página del repositorio clic en "uploading an existing file"
+5. Arrastrá TODOS estos archivos desde la carpeta isum_web_supabase:
+     app.py
+     requirements.txt
+     Procfile
+     render.yaml
+     static/
+        logo.jpg
+     templates/
+        base.html
+        login.html
+        index.html
+        formulario.html
+        admin.html
+
+   IMPORTANTE: para subir las carpetas static/ y templates/,
+   dentro de GitHub tenés que entrar a cada carpeta y subir
+   los archivos uno por uno, o usar GitHub Desktop (más fácil).
+
+6. En cada subida, clic en "Commit changes"
+
+OPCION MAS FACIL – GitHub Desktop:
+1. Descargá GitHub Desktop desde desktop.github.com
+2. Instalalo y conectalo con tu cuenta de GitHub
+3. Clic en "Add" → "Add Existing Repository"
+4. Seleccioná la carpeta isum_web_supabase
+5. Clic en "Publish repository" → elegí "isum-preparativos"
+
+==============================================================
+PARTE 3 – PUBLICAR EN RENDER
+==============================================================
+
+PASO 6 – Crear cuenta en Render
+--------------------------------------------------------------
+1. Andá a render.com
+2. Clic en "Get Started for Free"
+3. Registrate con tu cuenta de GitHub (más fácil)
+
+PASO 7 – Crear el servicio web
+--------------------------------------------------------------
+1. En el Dashboard de Render, clic en "New +" → "Web Service"
+2. Conectá tu cuenta de GitHub si te lo pide
+3. Buscá y seleccioná el repositorio "isum-preparativos"
+4. Clic en "Connect"
+5. Completá la configuración:
+     Name:          isum-preparativos
+     Region:        Oregon (US West)
+     Branch:        main
+     Runtime:       Python 3
+     Build Command: pip install -r requirements.txt
+     Start Command: gunicorn app:app --bind 0.0.0.0:$PORT
+     Instance Type: Free
+
+PASO 8 – Agregar las variables de entorno
+--------------------------------------------------------------
+Bajá en esa misma página hasta "Environment Variables"
+Agregá estas tres variables (clic en "Add Environment Variable"):
+
+   Clave: DATABASE_URL
+   Valor: (pegá la URL de Supabase que copiaste en el Paso 3)
+          postgresql://postgres:ISUMdb2024!@db.xxxxx.supabase.co:5432/postgres
+
+   Clave: ISUM_PASSWORD
+   Valor: (la contraseña que quieras para entrar a la app)
+          Ejemplo: isum2024
+
+   Clave: SECRET_KEY
+   Valor: (cualquier texto largo y aleatorio)
+          Ejemplo: clave-super-secreta-isum-2024-xyz
+
+PASO 9 – Crear el servicio
+--------------------------------------------------------------
+1. Clic en "Create Web Service" (abajo de todo)
+2. Render empieza a construir la app (3-5 minutos)
+3. Ves los logs en tiempo real — es normal que salga texto
+4. Cuando aparece "Your service is live" en verde, está listo
+
+PASO 10 – Abrir la app
+--------------------------------------------------------------
+1. Arriba de todo en Render aparece la URL:
+   https://isum-preparativos.onrender.com
+   (o similar)
+2. Hacé clic en esa URL
+3. Ingresá con la contraseña que configuraste en ISUM_PASSWORD
+4. ¡La app está funcionando!
+
+==============================================================
+MANTENIMIENTO
+==============================================================
+
+CAMBIAR LA CONTRASEÑA:
+  Render → tu servicio → Environment → ISUM_PASSWORD → editar
+
+COMPARTIR CON EL EQUIPO:
+  Simplemente mandales la URL y la contraseña
+
+ACTUALIZACIONES DE LA APP:
+  Si en el futuro hay cambios en el código, subís los archivos
+  nuevos a GitHub y Render los despliega automáticamente
+
+BACKUP DE DATOS:
+  En Supabase → tu proyecto → Table Editor
+  Podés ver y exportar todos los datos en cualquier momento
+
+SUPABASE GRATIS INCLUYE:
+  - 500 MB de base de datos
+  - Sin limite de tiempo
+  - Backups automáticos
+  - Panel de administración de datos
+
+==============================================================
+SOPORTE
+==============================================================
+
+Si algo no funciona en el deploy, los errores más comunes son:
+
+ERROR "connection refused":
+  → Revisá que la DATABASE_URL esté bien copiada en Render
+
+ERROR "invalid password":
+  → Revisá que no haya espacios en la DATABASE_URL
+
+La app no carga (rueda girando):
+  → En el plan gratuito de Render la app se duerme.
+     La primera visita del dia tarda ~30 segundos. Es normal.
+
+==============================================================

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Administración{% endblock %}
+{% block content %}
+
+<h2 style="color:var(--gold); font-family:Georgia,serif; font-size:20px; margin-bottom:20px;">Administración de Datos Maestros</h2>
+
+<!-- PAÍSES Y SEDES -->
+<div class="card">
+  <div class="card-header"><h2>▸ PAÍSES Y SEDES</h2></div>
+  <div class="card-body">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+
+      <!-- Países -->
+      <div>
+        <p style="color:var(--gold); font-size:12px; font-weight:bold; margin-bottom:8px;">PAÍSES</p>
+        <div class="list-items">
+          {% for p in master.paises.keys() %}
+          <div class="list-item">
+            <span>{{ p }}</span>
+            <form method="POST" action="{{ url_for('admin_guardar') }}" style="display:inline"
+                  onsubmit="return confirm('¿Eliminar el país {{ p }} y todas sus sedes?')">
+              <input type="hidden" name="seccion" value="paises">
+              <input type="hidden" name="accion"  value="eliminar_pais">
+              <input type="hidden" name="valor"   value="{{ p }}">
+              <button class="btn btn-danger btn-sm">−</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+        <form method="POST" action="{{ url_for('admin_guardar') }}" style="display:flex; gap:8px;">
+          <input type="hidden" name="seccion" value="paises">
+          <input type="hidden" name="accion"  value="agregar_pais">
+          <input type="text"   name="valor" placeholder="Nuevo país" style="flex:1;">
+          <button class="btn btn-primary btn-sm">+ Agregar</button>
+        </form>
+      </div>
+
+      <!-- Sedes -->
+      <div>
+        <p style="color:var(--gold); font-size:12px; font-weight:bold; margin-bottom:8px;">SEDES</p>
+        <select id="sel-pais-admin" onchange="mostrarSedes()"
+                style="width:100%; margin-bottom:10px;">
+          <option value="">— Seleccionar país —</option>
+          {% for p in master.paises.keys() %}
+            <option value="{{ p }}">{{ p }}</option>
+          {% endfor %}
+        </select>
+        <div id="sedes-container">
+          {% for p, sedes in master.paises.items() %}
+          <div class="sedes-grupo" id="sedes-{{ loop.index }}" data-pais="{{ p }}" style="display:none;">
+            <div class="list-items" style="max-height:200px;">
+              {% for s in sedes %}
+              <div class="list-item">
+                <span>{{ s }}</span>
+                <form method="POST" action="{{ url_for('admin_guardar') }}" style="display:inline">
+                  <input type="hidden" name="seccion" value="paises">
+                  <input type="hidden" name="accion"  value="eliminar_sede">
+                  <input type="hidden" name="pais"    value="{{ p }}">
+                  <input type="hidden" name="valor"   value="{{ s }}">
+                  <button class="btn btn-danger btn-sm">−</button>
+                </form>
+              </div>
+              {% endfor %}
+            </div>
+            <form method="POST" action="{{ url_for('admin_guardar') }}" style="display:flex; gap:8px; margin-top:8px;">
+              <input type="hidden" name="seccion" value="paises">
+              <input type="hidden" name="accion"  value="agregar_sede">
+              <input type="hidden" name="pais"    value="{{ p }}">
+              <input type="text"   name="valor" placeholder="Nueva sede" style="flex:1;">
+              <button class="btn btn-primary btn-sm">+ Agregar</button>
+            </form>
+            <!-- Importar sedes -->
+            <details style="margin-top:10px;">
+              <summary style="color:var(--gold); font-size:12px; cursor:pointer;">📋 Importar sedes en lote</summary>
+              <form method="POST" action="{{ url_for('admin_guardar') }}" style="margin-top:8px;">
+                <input type="hidden" name="seccion" value="paises">
+                <input type="hidden" name="accion"  value="importar_sedes">
+                <input type="hidden" name="pais"    value="{{ p }}">
+                <textarea name="valor" rows="6" placeholder="Pegá una sede por línea&#10;Buenos Aires&#10;Córdoba&#10;Rosario..."></textarea>
+                <button class="btn btn-primary btn-sm" style="margin-top:8px;">Importar y Grabar</button>
+              </form>
+            </details>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DIRECTORES / PROFESORES / HONORARIOS -->
+{% for key, title in [('directores','DIRECTORES'),('profesores','PROFESORES'),('honorarios','HONORARIOS')] %}
+<div class="card">
+  <div class="card-header"><h2>▸ {{ title }}</h2></div>
+  <div class="card-body">
+    <div class="list-items">
+      {% for item in master[key] %}
+      <div class="list-item">
+        <span>{{ item }}</span>
+        <form method="POST" action="{{ url_for('admin_guardar') }}" style="display:inline">
+          <input type="hidden" name="seccion" value="{{ key }}">
+          <input type="hidden" name="accion"  value="eliminar">
+          <input type="hidden" name="valor"   value="{{ item }}">
+          <button class="btn btn-danger btn-sm">−</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Agregar uno -->
+    <form method="POST" action="{{ url_for('admin_guardar') }}" style="display:flex; gap:8px; margin-bottom:12px;">
+      <input type="hidden" name="seccion" value="{{ key }}">
+      <input type="hidden" name="accion"  value="agregar">
+      <input type="text"   name="valor" placeholder="Agregar {{ title[:-1]|lower }}..." style="flex:1;">
+      <button class="btn btn-primary btn-sm">+ Agregar</button>
+    </form>
+
+    <!-- Importar en lote -->
+    <details>
+      <summary style="color:var(--gold); font-size:12px; cursor:pointer;">📋 Importar {{ title|lower }} en lote</summary>
+      <form method="POST" action="{{ url_for('admin_guardar') }}" style="margin-top:10px;">
+        <input type="hidden" name="seccion" value="{{ key }}">
+        <input type="hidden" name="accion"  value="importar">
+        <textarea name="valor" rows="8"
+                  placeholder="Pegá uno por línea (podés copiar desde Excel)&#10;Nombre 1&#10;Nombre 2&#10;..."></textarea>
+        <button class="btn btn-primary btn-sm" style="margin-top:8px;">Importar y Grabar</button>
+      </form>
+    </details>
+  </div>
+</div>
+{% endfor %}
+
+<script>
+const PAISES_DATA = {{ master.paises|tojson }};
+
+function mostrarSedes() {
+  const pais = document.getElementById('sel-pais-admin').value;
+  document.querySelectorAll('.sedes-grupo').forEach(el => {
+    el.style.display = el.dataset.pais === pais ? 'block' : 'none';
+  });
+}
+</script>
+{% endblock %}

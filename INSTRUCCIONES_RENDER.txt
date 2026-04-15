@@ -1,0 +1,90 @@
+==============================================================
+  ISUM WEB – Deploy en Render con PostgreSQL (datos permanentes)
+==============================================================
+
+RESULTADO: URL tipo https://isum-preparativos.onrender.com
+Los datos NO se borran aunque el servidor se reinicie.
+
+--------------------------------------------------------------
+PASO 1 – Crear cuenta en GitHub (si no tenés)
+--------------------------------------------------------------
+1. Andá a github.com
+2. Clic en "Sign up" y creá una cuenta gratuita
+
+--------------------------------------------------------------
+PASO 2 – Subir el código a GitHub
+--------------------------------------------------------------
+1. En github.com, clic en "+" → "New repository"
+2. Nombre: isum-preparativos  |  Dejalo en "Public"
+3. Clic en "Create repository"
+4. Clic en "uploading an existing file"
+5. Arrastrá TODOS los archivos de esta carpeta:
+     app.py
+     requirements.txt
+     Procfile
+     render.yaml
+     static/logo.jpg
+     templates/*.html
+6. Clic en "Commit changes"
+
+--------------------------------------------------------------
+PASO 3 – Crear la base de datos PostgreSQL en Render
+--------------------------------------------------------------
+1. Andá a render.com → registrate con tu cuenta de GitHub
+2. En el Dashboard: "New +" → "PostgreSQL"
+3. Completá:
+     Name:          isum-db
+     Database:      isum
+     User:          isum
+     Region:        Oregon (US West)  ← el más cercano gratis
+4. Clic en "Create Database"
+5. Esperá que diga "Available" (1-2 minutos)
+6. Copiá el valor de "Internal Database URL" (lo necesitás en el paso 4)
+
+--------------------------------------------------------------
+PASO 4 – Crear el servicio web en Render
+--------------------------------------------------------------
+1. En el Dashboard: "New +" → "Web Service"
+2. Conectá tu repositorio "isum-preparativos"
+3. Configurá:
+     Name:          isum-preparativos
+     Environment:   Python
+     Build Command: pip install -r requirements.txt
+     Start Command: gunicorn app:app --bind 0.0.0.0:$PORT
+4. Bajá a "Environment Variables" y agregá:
+     DATABASE_URL  →  pegá la "Internal Database URL" del paso 3
+     ISUM_PASSWORD →  la contraseña que querés usar (ej: isum2024)
+     SECRET_KEY    →  cualquier texto largo aleatorio
+5. Clic en "Create Web Service"
+
+--------------------------------------------------------------
+PASO 5 – Esperar el deploy (3-5 minutos)
+--------------------------------------------------------------
+Render instala todo y crea las tablas automáticamente.
+Cuando dice "Live" en verde, la app está disponible.
+
+--------------------------------------------------------------
+NOTAS IMPORTANTES
+--------------------------------------------------------------
+
+CONTRASEÑA:
+  Cambiala en Render → tu servicio → Environment → ISUM_PASSWORD
+  Todos los miembros del equipo usan la misma contraseña.
+
+DATOS PERMANENTES:
+  Con PostgreSQL los datos NO se pierden nunca.
+  La base de datos gratuita de Render dura 90 dias en el
+  plan free, luego hay que recrearla (los datos se exportan).
+  Para uso permanente sin limite recomendamos el plan Starter
+  ($7/mes) o usar Supabase.com (PostgreSQL 100% gratis y permanente).
+
+PLAN GRATUITO DE RENDER:
+  - La app se "duerme" tras 15 min sin uso
+  - Primera visita del dia tarda ~30 seg en despertar
+  - Para uso continuo: plan Starter ($7/mes)
+
+MIGRACION DESDE LA VERSION DE ESCRITORIO:
+  Los datos del master.json se pueden importar manualmente
+  desde la seccion Administracion de la app web.
+
+==============================================================

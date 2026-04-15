@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ISUM – {% block title %}{% endblock %}</title>
+<style>
+:root {
+  --bg:       #0D1B2A;
+  --panel:    #162032;
+  --card:     #1E2D42;
+  --border:   #2E4A6B;
+  --gold:     #C9A84C;
+  --gold-lt:  #E8C97A;
+  --text:     #E8EDF4;
+  --text-dim: #8FA4BE;
+  --input-bg: #0F1E2E;
+  --accent:   #4A90C9;
+  --danger:   #CF4444;
+  --ok:       #4CAF8A;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', Arial, sans-serif; min-height: 100vh; }
+
+/* Header */
+header { background: var(--panel); padding: 0 24px; display: flex; align-items: center; gap: 16px; height: 72px; border-bottom: 2px solid var(--gold); position: sticky; top: 0; z-index: 100; }
+header img { height: 50px; }
+.header-titles h1 { color: var(--gold); font-family: Georgia, serif; font-size: 15px; }
+.header-titles p  { color: var(--text-dim); font-size: 11px; font-style: italic; }
+header nav { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+header nav a { color: var(--text-dim); text-decoration: none; padding: 7px 14px; border-radius: 4px; font-size: 13px; transition: all .2s; }
+header nav a:hover, header nav a.active { background: var(--border); color: var(--text); }
+.btn-logout { background: transparent; border: 1px solid var(--border); color: var(--text-dim); cursor: pointer; padding: 7px 14px; border-radius: 4px; font-size: 13px; }
+.btn-logout:hover { border-color: var(--danger); color: var(--danger); }
+
+/* Layout */
+.container { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+
+/* Cards */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
+.card-header { background: var(--panel); padding: 12px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.card-header h2 { color: var(--gold); font-family: Georgia, serif; font-size: 14px; }
+.card-body { padding: 18px; }
+
+/* Formulario */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-grid.cols3 { grid-template-columns: 1fr 1fr 1fr; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group.full { grid-column: 1 / -1; }
+label { color: var(--text-dim); font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: .5px; }
+input, select, textarea {
+  background: var(--input-bg); border: 1px solid var(--border);
+  color: var(--text); padding: 8px 10px; border-radius: 4px;
+  font-size: 13px; font-family: inherit; outline: none; width: 100%;
+  transition: border-color .2s;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--gold); }
+input[readonly] { opacity: .7; cursor: default; }
+.input-prefix { display: flex; align-items: center; }
+.input-prefix span { background: var(--border); color: var(--gold); padding: 8px 10px; border-radius: 4px 0 0 4px; border: 1px solid var(--border); font-size: 13px; border-right: none; }
+.input-prefix input { border-radius: 0 4px 4px 0; }
+select option { background: var(--card); }
+
+/* Botones */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 4px; border: none; cursor: pointer; font-size: 13px; font-weight: bold; text-decoration: none; transition: all .2s; }
+.btn-primary   { background: var(--gold); color: #0D1B2A; }
+.btn-primary:hover { background: var(--gold-lt); }
+.btn-secondary { background: var(--border); color: var(--text); }
+.btn-secondary:hover { background: var(--accent); }
+.btn-danger    { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
+.btn-danger:hover { background: var(--danger); color: white; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+
+/* Materia header */
+.materia-title { color: var(--gold-lt); font-size: 12px; font-weight: bold; padding: 8px 0 4px; border-top: 1px solid var(--border); margin-top: 8px; }
+
+/* Tabla seminarios */
+table { width: 100%; border-collapse: collapse; }
+th { background: var(--panel); color: var(--gold); font-size: 11px; text-transform: uppercase; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+td { padding: 11px 14px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+tr:hover td { background: rgba(46,74,107,.3); }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; background: var(--border); color: var(--gold); }
+
+/* Flash messages */
+.flash { padding: 12px 18px; border-radius: 6px; margin-bottom: 16px; font-size: 13px; }
+.flash.ok      { background: rgba(76,175,138,.15); border: 1px solid var(--ok); color: var(--ok); }
+.flash.error   { background: rgba(207,68,68,.15); border: 1px solid var(--danger); color: var(--danger); }
+
+/* Quincena selector */
+.quincena-header { display: flex; align-items: center; gap: 10px; }
+.quincena-header select { width: auto; padding: 4px 8px; font-size: 13px; }
+.quincena-label { color: var(--gold); font-family: Georgia, serif; font-size: 14px; }
+
+/* Admin listas */
+.list-items { max-height: 280px; overflow-y: auto; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 4px; }
+.list-item { display: flex; justify-content: space-between; align-items: center; padding: 7px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.list-item:last-child { border-bottom: none; }
+.list-item:hover { background: rgba(46,74,107,.3); }
+
+/* Login */
+.login-box { max-width: 380px; margin: 80px auto; }
+
+/* Responsive */
+@media (max-width: 700px) {
+  .form-grid, .form-grid.cols3 { grid-template-columns: 1fr; }
+  .form-group.full { grid-column: 1; }
+  header { flex-wrap: wrap; height: auto; padding: 12px; }
+}
+</style>
+</head>
+<body>
+{% if session.logged_in %}
+<header>
+  <img src="/static/logo.jpg" alt="ISUM">
+  <div class="header-titles">
+    <h1>INSTITUTO DE SUPERACIÓN MINISTERIAL</h1>
+    <p>Hoja de Preparativos</p>
+  </div>
+  <nav>
+    <a href="{{ url_for('index') }}" {% if request.endpoint=='index' %}class="active"{% endif %}>Seminarios</a>
+    <a href="{{ url_for('admin') }}"  {% if request.endpoint=='admin' %}class="active"{% endif %}>Administración</a>
+    <form action="{{ url_for('logout') }}" method="get" style="display:inline">
+      <button class="btn-logout">Salir</button>
+    </form>
+  </nav>
+</header>
+{% endif %}
+
+<div class="container">
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in messages %}
+    <div class="flash {{ cat }}">{{ msg }}</div>
+  {% endfor %}
+{% endwith %}
+{% block content %}{% endblock %}
+</div>
+</body>
+</html>

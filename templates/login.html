@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ISUM – Ingresar</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0D1B2A; color: #E8EDF4; font-family: 'Segoe UI', Arial, sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+.box { background: #1E2D42; border: 1px solid #2E4A6B; border-radius: 10px; padding: 40px; width: 360px; text-align: center; }
+.box img { height: 80px; margin-bottom: 16px; }
+h1 { color: #C9A84C; font-family: Georgia, serif; font-size: 16px; margin-bottom: 4px; }
+p  { color: #8FA4BE; font-size: 12px; margin-bottom: 28px; }
+input[type=password] { width: 100%; background: #0F1E2E; border: 1px solid #2E4A6B; color: #E8EDF4; padding: 11px 14px; border-radius: 4px; font-size: 14px; outline: none; margin-bottom: 14px; transition: border-color .2s; }
+input[type=password]:focus { border-color: #C9A84C; }
+button { width: 100%; background: #C9A84C; color: #0D1B2A; border: none; padding: 11px; border-radius: 4px; font-size: 14px; font-weight: bold; cursor: pointer; transition: background .2s; }
+button:hover { background: #E8C97A; }
+.error { background: rgba(207,68,68,.15); border: 1px solid #CF4444; color: #CF4444; padding: 10px; border-radius: 4px; font-size: 13px; margin-bottom: 14px; }
+</style>
+</head>
+<body>
+<div class="box">
+  <img src="/static/logo.jpg" alt="ISUM">
+  <h1>INSTITUTO DE SUPERACIÓN MINISTERIAL</h1>
+  <p>Hoja de Preparativos</p>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="POST">
+    <input type="password" name="password" placeholder="Contraseña" autofocus required>
+    <button type="submit">Ingresar</button>
+  </form>
+</div>
+</body>
+</html>

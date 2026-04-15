@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Seminarios{% endblock %}
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+  <h2 style="color:var(--gold); font-family:Georgia,serif; font-size:20px;">Seminarios Registrados</h2>
+  <a href="{{ url_for('nuevo_seminario') }}" class="btn btn-primary">+ Nuevo Seminario</a>
+</div>
+
+{% if seminarios %}
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>País</th><th>Sede</th><th>Seminario</th><th>Año</th>
+        <th>Duración</th><th>Fecha Inicio</th><th>Clausura</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for s in seminarios %}
+      <tr>
+        <td>{{ s.get('pais','—') }}</td>
+        <td>{{ s.get('sede','—') }}</td>
+        <td><span class="badge">{{ s.get('num_sem','—') }}</span></td>
+        <td>{{ s.get('anio','—') }}</td>
+        <td>{{ s.get('duracion','—') }}</td>
+        <td>{{ s.get('fecha_inicio','—') }}</td>
+        <td>{{ s.get('fecha_clausura','—') }}</td>
+        <td style="white-space:nowrap; text-align:right;">
+          <a href="{{ url_for('editar_seminario', db_id=s['_db_id']) }}" class="btn btn-secondary btn-sm">✏ Editar</a>
+          <form method="POST" action="{{ url_for('eliminar_seminario', db_id=s['_db_id']) }}"
+                style="display:inline"
+                onsubmit="return confirm('Eliminar este seminario?')">
+            <button class="btn btn-danger btn-sm">🗑</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card">
+  <div class="card-body" style="text-align:center; padding:48px; color:var(--text-dim);">
+    <p style="font-size:15px; margin-bottom:14px;">No hay seminarios registrados todavía.</p>
+    <a href="{{ url_for('nuevo_seminario') }}" class="btn btn-primary">+ Crear el primero</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

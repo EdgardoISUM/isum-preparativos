@@ -1,0 +1,336 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if modo=='editar' else 'Nuevo' }} Seminario{% endblock %}
+{% block content %}
+
+<div style="display:flex; align-items:center; gap:12px; margin-bottom:6px;">
+  <a href="{{ url_for('index') }}" class="btn btn-secondary btn-sm">← Volver</a>
+  <h2 style="color:var(--gold); font-family:Georgia,serif; font-size:18px;" id="titulo-dinamico">
+    {{ seminario.get('pais','') }}{% if seminario.get('sede') %} – {{ seminario.get('sede') }}{% endif %}{% if seminario.get('num_sem') %} – Seminario {{ seminario.get('num_sem') }}{% endif %}
+  </h2>
+</div>
+<p style="color:var(--text-dim); font-style:italic; font-size:13px; margin-bottom:18px;" id="subtitulo-dinamico">
+  {% if seminario.get('fecha_inicio') and seminario.get('fecha_clausura') %}Del {{ seminario.get('fecha_inicio') }} al {{ seminario.get('fecha_clausura') }}{% endif %}
+</p>
+
+<form method="POST" action="{{ url_for('guardar_seminario') }}">
+<input type="hidden" name="db_id" value="{{ db_id if db_id is not none else '' }}">
+
+<!-- DATOS GENERALES -->
+<div class="card">
+  <div class="card-header"><h2>▸ DATOS GENERALES DEL SEMINARIO</h2></div>
+  <div class="card-body">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>País</label>
+        <select name="pais" id="sel-pais" onchange="cargarSedes()">
+          <option value="">— Seleccionar —</option>
+          {% for p in master.paises.keys() %}
+            <option value="{{ p }}" {% if seminario.get('pais')==p %}selected{% endif %}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Sede</label>
+        <select name="sede" id="sel-sede">
+          <option value="">— Seleccionar país primero —</option>
+          {% set pais_actual = seminario.get('pais','') %}
+          {% if pais_actual and pais_actual in master.paises %}
+            {% for s in master.paises[pais_actual] %}
+              <option value="{{ s }}" {% if seminario.get('sede')==s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          {% endif %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>N° Seminario</label>
+        <select name="num_sem" id="sel-num" onchange="actualizarMaterias()">
+          <option value="">— Seleccionar —</option>
+          {% for op in ['I','II','III','PROYECTO'] %}
+            <option value="{{ op }}" {% if seminario.get('num_sem')==op %}selected{% endif %}>{{ op }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Año</label>
+        <select name="anio">
+          {% for y in range(2024, 2030) %}
+            <option value="{{ y }}" {% if seminario.get('anio','')|string==y|string %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Duración</label>
+        <select name="duracion">
+          <option value="">— Seleccionar —</option>
+          {% for op in ['MENSUAL','QUINCENAL','PROYECTO'] %}
+            <option value="{{ op }}" {% if seminario.get('duracion')==op %}selected{% endif %}>{{ op }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FECHAS -->
+<div class="card">
+  <div class="card-header"><h2>▸ FECHAS</h2></div>
+  <div class="card-body">
+    <div class="form-grid cols3">
+      <div class="form-group">
+        <label>Fecha de Inicio (dd-mm-aaaa)</label>
+        <input type="text" name="fecha_inicio" id="f-inicio"
+               value="{{ seminario.get('fecha_inicio','') }}"
+               placeholder="dd-mm-aaaa" oninput="calcFechas()">
+      </div>
+      <div class="form-group">
+        <label>Inicio 2ª Quincena (auto +14 días)</label>
+        <input type="text" name="fecha_inicio_2q" id="f-2q"
+               value="{{ seminario.get('fecha_inicio_2q','') }}"
+               placeholder="dd-mm-aaaa" oninput="calcClausura()">
+      </div>
+      <div class="form-group">
+        <label>Clausura / Graduación (auto +11 días)</label>
+        <input type="text" name="fecha_clausura" id="f-clausura" readonly
+               value="{{ seminario.get('fecha_clausura','') }}">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DIRECTORES -->
+<div class="card">
+  <div class="card-header"><h2>▸ DIRECTORES</h2></div>
+  <div class="card-body">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Director 1ª Quincena</label>
+        <select name="director1">
+          <option value="">— Seleccionar —</option>
+          {% for d in master.directores %}
+            <option value="{{ d }}" {% if seminario.get('director1')==d %}selected{% endif %}>{{ d }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Director 2ª Quincena</label>
+        <select name="director2">
+          <option value="">— Seleccionar —</option>
+          {% for d in master.directores %}
+            <option value="{{ d }}" {% if seminario.get('director2')==d %}selected{% endif %}>{{ d }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- QUINCENAS -->
+{% for qi in range(2) %}
+{% set mat_base = qi * 2 %}
+<div class="card">
+  <div class="card-header">
+    <div class="quincena-header">
+      <select name="quincena_bloque{{ qi }}" id="q{{ qi }}-sel"
+              onchange="sincronizarQuincenas({{ qi }})" style="width:auto;">
+        <option value="PRIMERA" {% if seminario.get('quincena_bloque'~qi,'PRIMERA' if qi==0 else 'SEGUNDA')=='PRIMERA' %}selected{% endif %}>PRIMERA</option>
+        <option value="SEGUNDA" {% if seminario.get('quincena_bloque'~qi,'PRIMERA' if qi==0 else 'SEGUNDA')=='SEGUNDA' %}selected{% endif %}>SEGUNDA</option>
+      </select>
+      <span class="quincena-label">QUINCENA — MATERIAS {{ mat_base+1 }} y {{ mat_base+2 }}</span>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Fecha Inicio Quincena</label>
+        <input type="text" name="q{{ qi }}_fi" id="q{{ qi }}-fi" readonly
+               value="{{ seminario.get('q'~qi~'_fi','') }}">
+      </div>
+      <div class="form-group">
+        <label>Fecha Fin Quincena</label>
+        <input type="text" name="q{{ qi }}_ff" id="q{{ qi }}-ff" readonly
+               value="{{ seminario.get('q'~qi~'_ff','') }}">
+      </div>
+    </div>
+
+    {% for mi in range(2) %}
+    {% set mat_db_id = qi*2 + mi %}
+    <div class="materia-title" id="mat-title-{{ mat_db_id }}">
+      MATERIA {{ mat_db_id+1 }}{% if seminario.get('num_sem') %}: {{ materias.get(seminario.get('num_sem'),['','','',''])[mat_db_id] }}{% endif %}
+    </div>
+    <div class="form-grid cols3" style="margin-top:8px;">
+      {% for opc in range(3) %}
+      <div class="form-group">
+        <label>Profesor {{ ['1ª','2ª','3ª'][opc] }} opción</label>
+        <select name="q{{ qi }}_m{{ mi }}_prof{{ opc }}">
+          <option value="">— Seleccionar —</option>
+          {% for p in master.profesores %}
+            <option value="{{ p }}" {% if seminario.get('q'~qi~'_m'~mi~'_prof'~opc)==p %}selected{% endif %}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="form-grid" style="margin-top:8px;">
+      <div class="form-group">
+        <label>Fecha Invitación</label>
+        <input type="text" name="q{{ qi }}_m{{ mi }}_inv"
+               value="{{ seminario.get('q'~qi~'_m'~mi~'_inv','') }}" placeholder="dd-mm-aaaa">
+      </div>
+      <div class="form-group">
+        <label>Fecha Aceptación</label>
+        <input type="text" name="q{{ qi }}_m{{ mi }}_acep"
+               value="{{ seminario.get('q'~qi~'_m'~mi~'_acep','') }}" placeholder="dd-mm-aaaa">
+      </div>
+      <div class="form-group">
+        <label>Invitado por</label>
+        <input type="text" name="q{{ qi }}_m{{ mi }}_invit_por"
+               value="{{ seminario.get('q'~qi~'_m'~mi~'_invit_por','') }}">
+      </div>
+      <div class="form-group">
+        <label>Honorarios</label>
+        <select name="q{{ qi }}_m{{ mi }}_honorarios">
+          <option value="">— Seleccionar —</option>
+          {% for h in master.honorarios %}
+            <option value="{{ h }}" {% if seminario.get('q'~qi~'_m'~mi~'_honorarios')==h %}selected{% endif %}>{{ h }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Valor Pasaje</label>
+        <div class="input-prefix">
+          <span>$</span>
+          <input type="text" name="q{{ qi }}_m{{ mi }}_pasaje"
+                 value="{{ seminario.get('q'~qi~'_m'~mi~'_pasaje','') }}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Veces que Enseñó</label>
+        <input type="number" name="q{{ qi }}_m{{ mi }}_veces" min="0" max="999"
+               value="{{ seminario.get('q'~qi~'_m'~mi~'_veces','') }}">
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+
+<!-- OBSERVACIONES -->
+<div class="card">
+  <div class="card-header"><h2>▸ OBSERVACIONES</h2></div>
+  <div class="card-body">
+    <div class="form-group">
+      <textarea name="observaciones" rows="4" maxlength="400"
+                placeholder="Máximo 400 caracteres">{{ seminario.get('observaciones','') }}</textarea>
+    </div>
+  </div>
+</div>
+
+<div style="display:flex; gap:10px; margin-top:8px;">
+  <button type="submit" class="btn btn-primary">💾 Guardar Seminario</button>
+  <a href="{{ url_for('index') }}" class="btn btn-secondary">✕ Cancelar</a>
+</div>
+</form>
+
+<script>
+const MATERIAS = {{ materias|tojson }};
+const SEDES    = {{ master.paises|tojson }};
+
+// ── Cargar sedes al cambiar país ──────────────────────────────────────────────
+function cargarSedes() {
+  const pais  = document.getElementById('sel-pais').value;
+  const selS  = document.getElementById('sel-sede');
+  const sedes = SEDES[pais] || [];
+  selS.innerHTML = '<option value="">— Seleccionar —</option>';
+  sedes.forEach(s => {
+    const o = document.createElement('option'); o.value = s; o.textContent = s;
+    selS.appendChild(o);
+  });
+  actualizarTitulo();
+}
+
+// ── Materias según número de seminario ───────────────────────────────────────
+function actualizarMaterias() {
+  const num  = document.getElementById('sel-num').value;
+  const mats = MATERIAS[num] || ['','','',''];
+  for (let i = 0; i < 4; i++) {
+    const el = document.getElementById('mat-title-' + i);
+    if (el) el.textContent = 'MATERIA ' + (i+1) + (mats[i] ? ': ' + mats[i] : '');
+  }
+  actualizarTitulo();
+}
+
+// ── Título dinámico ───────────────────────────────────────────────────────────
+function actualizarTitulo() {
+  const pais = document.getElementById('sel-pais').value;
+  const sede = document.getElementById('sel-sede').value;
+  const num  = document.getElementById('sel-num').value;
+  const partes = [pais, sede, num ? 'Seminario ' + num : ''].filter(Boolean);
+  document.getElementById('titulo-dinamico').textContent = partes.join(' – ') || 'NUEVO SEMINARIO';
+}
+
+// ── Cálculo de fechas ─────────────────────────────────────────────────────────
+function parseDate(s) {
+  const m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})$/);
+  if (!m) return null;
+  let y = parseInt(m[3]); if (y < 100) y += 2000;
+  return new Date(y, parseInt(m[2])-1, parseInt(m[1]));
+}
+function fmtDate(d) {
+  return String(d.getDate()).padStart(2,'0') + '-' +
+         String(d.getMonth()+1).padStart(2,'0') + '-' + d.getFullYear();
+}
+function addDays(d, n) {
+  const r = new Date(d); r.setDate(r.getDate()+n); return r;
+}
+
+function calcFechas() {
+  const fi = parseDate(document.getElementById('f-inicio').value);
+  if (fi) {
+    const fi2q = addDays(fi, 14);
+    document.getElementById('f-2q').value = fmtDate(fi2q);
+    calcClausura();
+    actualizarFechasQuincenas(fi, fi2q);
+  }
+  actualizarTitulo();
+}
+
+function calcClausura() {
+  const fi2q = parseDate(document.getElementById('f-2q').value);
+  if (fi2q) {
+    document.getElementById('f-clausura').value = fmtDate(addDays(fi2q, 11));
+    const fi = parseDate(document.getElementById('f-inicio').value);
+    actualizarFechasQuincenas(fi, fi2q);
+  }
+  const fi = parseDate(document.getElementById('f-inicio').value);
+  const fc = document.getElementById('f-clausura').value;
+  if (fi && fc) {
+    document.getElementById('subtitulo-dinamico').textContent = 'Del ' + fmtDate(fi) + ' al ' + fc;
+  }
+}
+
+function actualizarFechasQuincenas(fi, fi2q) {
+  for (let qi = 0; qi < 2; qi++) {
+    const sel   = document.getElementById('q'+qi+'-sel').value;
+    const fecha = sel === 'PRIMERA' ? fi : fi2q;
+    if (fecha) {
+      document.getElementById('q'+qi+'-fi').value = fmtDate(fecha);
+      document.getElementById('q'+qi+'-ff').value = fmtDate(addDays(fecha, 11));
+    }
+  }
+}
+
+// ── Quincenas sincronizadas ───────────────────────────────────────────────────
+function sincronizarQuincenas(qi) {
+  const val   = document.getElementById('q'+qi+'-sel').value;
+  const otro  = 1 - qi;
+  document.getElementById('q'+otro+'-sel').value = val === 'PRIMERA' ? 'SEGUNDA' : 'PRIMERA';
+  const fi   = parseDate(document.getElementById('f-inicio').value);
+  const fi2q = parseDate(document.getElementById('f-2q').value);
+  actualizarFechasQuincenas(fi, fi2q);
+}
+
+// Inicializar al cargar
+actualizarMaterias();
+actualizarTitulo();
+</script>
+{% endblock %}
