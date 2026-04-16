@@ -10,16 +10,16 @@ APP_PASSWORD  = os.environ.get("ISUM_PASSWORD", "isum2024")
 DATABASE_URL  = os.environ.get("DATABASE_URL", "")
 
 MATERIAS = {
-    "I":        ["Didactica Avanzada",          "Liderazgo y Administracion",                   "Galatas, Juaninas",         "Psicologia Pastoral"],
-    "II":       ["Etica Ministerial",            "Profetas Mayores: Isaias",                     "Cristologia en Levitico",   "Hermeneutica Avanzada"],
-    "III":      ["Teologia del Espiritu Santo",  "Misionologia: Comunicaciones Transculturales", "Cristologia en Juan",       "Homiletica: Predicacion Expositiva"],
+    "I":        ["Didactica Avanzada","Liderazgo y Administracion","Galatas, Juaninas","Psicologia Pastoral"],
+    "II":       ["Etica Ministerial","Profetas Mayores: Isaias","Cristologia en Levitico","Hermeneutica Avanzada"],
+    "III":      ["Teologia del Espiritu Santo","Misionologia: Comunicaciones Transculturales","Cristologia en Juan","Homiletica: Predicacion Expositiva"],
     "PROYECTO": ["PROYECTO","PROYECTO","PROYECTO","PROYECTO"],
 }
 
 DEFAULT_MASTER = {
-    "paises":     {"Argentina": ["Buenos Aires","Cordoba","Rosario"],
-                   "Mexico":    ["Ciudad de Mexico","Guadalajara","Monterrey"],
-                   "Colombia":  ["Bogota","Medellin","Cali"]},
+    "paises":     {"Argentina":["Buenos Aires","Cordoba","Rosario"],
+                   "Mexico":["Ciudad de Mexico","Guadalajara","Monterrey"],
+                   "Colombia":["Bogota","Medellin","Cali"]},
     "directores": [],
     "profesores": [],
     "honorarios": ["$500","$750","$1000","$1250","$1500","$2000"],
@@ -34,7 +34,7 @@ def parse_db_url(url):
         "user":     urllib.parse.unquote(parsed.username or ""),
         "password": urllib.parse.unquote(parsed.password or ""),
         "host":     parsed.hostname or "",
-        "port":     parsed.port or 5432,
+        "port":     parsed.port or 6543,
         "database": (parsed.path or "/postgres").lstrip("/"),
     }
 
@@ -43,90 +43,63 @@ def get_conn():
     return pg8000.native.Connection(
         user=p["user"], password=p["password"],
         host=p["host"], port=p["port"],
-        database=p["database"], ssl_context=True
-    )
+        database=p["database"], ssl_context=True)
 
 def db_run(sql, **params):
-    """Ejecuta una query y retorna filas (o [] si no hay resultados)."""
     conn = get_conn()
     try:
-        result = conn.run(sql, **params)
-        return result or []
+        return conn.run(sql, **params) or []
     finally:
         conn.close()
 
 def init_db():
-    db_run("""
-        CREATE TABLE IF NOT EXISTS seminarios (
-            id      SERIAL PRIMARY KEY,
-            datos   TEXT NOT NULL,
-            creado  TIMESTAMP DEFAULT NOW(),
-            updated TIMESTAMP DEFAULT NOW()
-        )
-    """)
-    db_run("""
-        CREATE TABLE IF NOT EXISTS master (
-            id    SERIAL PRIMARY KEY,
-            datos TEXT NOT NULL
-        )
-    """)
+    db_run("""CREATE TABLE IF NOT EXISTS seminarios (
+        id SERIAL PRIMARY KEY, datos TEXT NOT NULL,
+        creado TIMESTAMP DEFAULT NOW(), updated TIMESTAMP DEFAULT NOW())""")
+    db_run("""CREATE TABLE IF NOT EXISTS master (
+        id SERIAL PRIMARY KEY, datos TEXT NOT NULL)""")
     rows = db_run("SELECT COUNT(*) FROM master")
     if not rows or rows[0][0] == 0:
-        db_run("INSERT INTO master (datos) VALUES (:d)",
-               d=json.dumps(DEFAULT_MASTER))
+        db_run("INSERT INTO master (datos) VALUES (:d)", d=json.dumps(DEFAULT_MASTER))
 
-for intento in range(5):
-    try:
-        init_db(); break
+for i in range(5):
+    try: init_db(); break
     except Exception as e:
-        if intento < 4: time.sleep(3)
+        if i < 4: time.sleep(3)
         else: print(f"ERROR init_db: {e}")
 
 def get_master():
     try:
         rows = db_run("SELECT datos FROM master ORDER BY id LIMIT 1")
         return json.loads(rows[0][0]) if rows else DEFAULT_MASTER
-    except Exception as e:
-        print(f"get_master error: {e}")
-        return DEFAULT_MASTER
+    except: return DEFAULT_MASTER
 
 def save_master(data):
     rows = db_run("SELECT id FROM master ORDER BY id LIMIT 1")
-    if rows:
-        db_run("UPDATE master SET datos=:d WHERE id=:i",
-               d=json.dumps(data, ensure_ascii=False), i=rows[0][0])
-    else:
-        db_run("INSERT INTO master (datos) VALUES (:d)",
-               d=json.dumps(data, ensure_ascii=False))
+    s = json.dumps(data, ensure_ascii=False)
+    if rows: db_run("UPDATE master SET datos=:d WHERE id=:i", d=s, i=rows[0][0])
+    else:    db_run("INSERT INTO master (datos) VALUES (:d)", d=s)
 
 def get_seminarios():
     try:
         rows = db_run("SELECT id, datos FROM seminarios ORDER BY id")
         result = []
         for r in rows:
-            d = json.loads(r[1])
-            d["_db_id"] = r[0]
-            result.append(d)
+            d = json.loads(r[1]); d["_db_id"] = r[0]; result.append(d)
         return result
-    except:
-        return []
+    except: return []
 
 def get_seminario_by_dbid(db_id):
     rows = db_run("SELECT id, datos FROM seminarios WHERE id=:i", i=db_id)
     if rows:
-        d = json.loads(rows[0][1])
-        d["_db_id"] = rows[0][0]
-        return d
+        d = json.loads(rows[0][1]); d["_db_id"] = rows[0][0]; return d
     return None
 
 def save_seminario(data, db_id=None):
     clean = {k: v for k, v in data.items() if k != "_db_id"}
-    if db_id:
-        db_run("UPDATE seminarios SET datos=:d, updated=NOW() WHERE id=:i",
-               d=json.dumps(clean, ensure_ascii=False), i=db_id)
-    else:
-        db_run("INSERT INTO seminarios (datos) VALUES (:d)",
-               d=json.dumps(clean, ensure_ascii=False))
+    s = json.dumps(clean, ensure_ascii=False)
+    if db_id: db_run("UPDATE seminarios SET datos=:d, updated=NOW() WHERE id=:i", d=s, i=db_id)
+    else:     db_run("INSERT INTO seminarios (datos) VALUES (:d)", d=s)
 
 def delete_seminario(db_id):
     db_run("DELETE FROM seminarios WHERE id=:i", i=db_id)
@@ -142,8 +115,7 @@ def fmt_date(d): return d.strftime("%d-%m-%Y")
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        if not session.get("logged_in"):
-            return redirect(url_for("login"))
+        if not session.get("logged_in"): return redirect(url_for("login"))
         return f(*args, **kwargs)
     return decorated
 
@@ -151,17 +123,14 @@ def login_required(f):
 def login():
     error = None
     if request.method == "POST":
-        pwd = request.form.get("password","").strip()
-        if pwd == APP_PASSWORD:
-            session["logged_in"] = True
-            return redirect(url_for("index"))
+        if request.form.get("password","").strip() == APP_PASSWORD:
+            session["logged_in"] = True; return redirect(url_for("index"))
         error = "Contrasena incorrecta"
     return render_template("login.html", error=error)
 
 @app.route("/logout")
 def logout():
-    session.clear()
-    return redirect(url_for("login"))
+    session.clear(); return redirect(url_for("login"))
 
 @app.route("/")
 @login_required
@@ -171,18 +140,16 @@ def index():
 @app.route("/seminario/nuevo")
 @login_required
 def nuevo_seminario():
-    return render_template("formulario.html", seminario={},
-                           master=get_master(), materias=MATERIAS,
-                           modo="nuevo", db_id=None)
+    return render_template("formulario.html", seminario={}, master=get_master(),
+                           materias=MATERIAS, modo="nuevo", db_id=None)
 
 @app.route("/seminario/<int:db_id>/editar")
 @login_required
 def editar_seminario(db_id):
     s = get_seminario_by_dbid(db_id)
     if not s: return redirect(url_for("index"))
-    return render_template("formulario.html", seminario=s,
-                           master=get_master(), materias=MATERIAS,
-                           modo="editar", db_id=db_id)
+    return render_template("formulario.html", seminario=s, master=get_master(),
+                           materias=MATERIAS, modo="editar", db_id=db_id)
 
 @app.route("/seminario/guardar", methods=["POST"])
 @login_required
@@ -192,10 +159,8 @@ def guardar_seminario():
     fi   = parse_date(data.get("fecha_inicio",""))
     fi2q = parse_date(data.get("fecha_inicio_2q",""))
     if fi and not fi2q:
-        fi2q = fi + timedelta(days=14)
-        data["fecha_inicio_2q"] = fmt_date(fi2q)
-    if fi2q:
-        data["fecha_clausura"] = fmt_date(fi2q + timedelta(days=11))
+        fi2q = fi + timedelta(days=14); data["fecha_inicio_2q"] = fmt_date(fi2q)
+    if fi2q: data["fecha_clausura"] = fmt_date(fi2q + timedelta(days=11))
     save_seminario(data, db_id=int(db_id) if db_id else None)
     flash("Seminario guardado correctamente.", "ok")
     return redirect(url_for("index"))
@@ -205,6 +170,17 @@ def guardar_seminario():
 def eliminar_seminario(db_id):
     delete_seminario(db_id)
     flash("Seminario eliminado.", "ok")
+    return redirect(url_for("index"))
+
+# ── Eliminar múltiples seminarios ─────────────────────────────────────────────
+@app.route("/seminarios/eliminar-varios", methods=["POST"])
+@login_required
+def eliminar_varios_seminarios():
+    ids = request.form.getlist("ids")
+    for id_ in ids:
+        try: delete_seminario(int(id_))
+        except: pass
+    flash(f"{len(ids)} seminario(s) eliminado(s).", "ok")
     return redirect(url_for("index"))
 
 @app.route("/admin")
@@ -231,6 +207,16 @@ def admin_guardar():
                 nuevos = [i for i in lineas if i not in master[seccion]]
                 master[seccion].extend(nuevos)
                 flash(f"{len(nuevos)} registros importados.", "ok")
+            elif accion == "ordenar":
+                master[seccion] = sorted(master[seccion], key=lambda x: x.lower())
+                flash("Lista ordenada alfabeticamente.", "ok")
+            elif accion == "borrar_todos":
+                master[seccion] = []
+                flash("Lista vaciada.", "ok")
+            elif accion == "eliminar_seleccionados":
+                seleccionados = request.form.getlist("seleccionados")
+                master[seccion] = [x for x in master[seccion] if x not in seleccionados]
+                flash(f"{len(seleccionados)} elemento(s) eliminado(s).", "ok")
 
         elif seccion == "paises":
             pais = request.form.get("pais","").strip()
@@ -249,21 +235,26 @@ def admin_guardar():
                 nuevos = [i for i in lineas if i not in master["paises"][pais]]
                 master["paises"][pais].extend(nuevos)
                 flash(f"{len(nuevos)} sedes importadas.", "ok")
+            elif accion == "ordenar_sedes" and pais in master["paises"]:
+                master["paises"][pais] = sorted(master["paises"][pais], key=lambda x: x.lower())
+                flash("Sedes ordenadas alfabeticamente.", "ok")
+            elif accion == "eliminar_sedes_seleccionadas" and pais in master["paises"]:
+                seleccionados = request.form.getlist("seleccionados")
+                master["paises"][pais] = [x for x in master["paises"][pais] if x not in seleccionados]
+                flash(f"{len(seleccionados)} sede(s) eliminada(s).", "ok")
 
         save_master(master)
-        flash("Datos guardados correctamente.", "ok")
+        if "_" not in accion:
+            flash("Datos guardados correctamente.", "ok")
     except Exception as e:
         flash(f"Error al guardar: {str(e)}", "error")
-
     return redirect(url_for("admin"))
 
 @app.route("/api/sedes")
 @login_required
 def api_sedes():
-    pais   = request.args.get("pais","")
-    master = get_master()
-    return jsonify(master["paises"].get(pais, []))
+    pais = request.args.get("pais","")
+    return jsonify(get_master()["paises"].get(pais, []))
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT",5000)), debug=False)
