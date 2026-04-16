@@ -18,7 +18,7 @@
           <div class="list-item">
             <span>{{ p }}</span>
             <form method="POST" action="{{ url_for('admin_guardar') }}" style="display:inline"
-                  onsubmit="return confirm('¿Eliminar el país {{ p }} y todas sus sedes?')">
+                  onsubmit="return confirm('Eliminar el pais {{ p }} y todas sus sedes?')">
               <input type="hidden" name="seccion" value="paises">
               <input type="hidden" name="accion"  value="eliminar_pais">
               <input type="hidden" name="valor"   value="{{ p }}">
@@ -27,7 +27,7 @@
           </div>
           {% endfor %}
         </div>
-        <form method="POST" action="{{ url_for('admin_guardar') }}" style="display:flex; gap:8px;">
+        <form method="POST" action="{{ url_for('admin_guardar') }}" style="display:flex; gap:8px; margin-top:8px;">
           <input type="hidden" name="seccion" value="paises">
           <input type="hidden" name="accion"  value="agregar_pais">
           <input type="text"   name="valor" placeholder="Nuevo país" style="flex:1;">
@@ -38,51 +38,67 @@
       <!-- Sedes -->
       <div>
         <p style="color:var(--gold); font-size:12px; font-weight:bold; margin-bottom:8px;">SEDES</p>
-        <select id="sel-pais-admin" onchange="mostrarSedes()"
-                style="width:100%; margin-bottom:10px;">
+        <select id="sel-pais-admin" onchange="mostrarSedes()" style="width:100%; margin-bottom:10px;">
           <option value="">— Seleccionar país —</option>
           {% for p in master.paises.keys() %}
             <option value="{{ p }}">{{ p }}</option>
           {% endfor %}
         </select>
-        <div id="sedes-container">
-          {% for p, sedes in master.paises.items() %}
-          <div class="sedes-grupo" id="sedes-{{ loop.index }}" data-pais="{{ p }}" style="display:none;">
-            <div class="list-items" style="max-height:200px;">
+
+        {% for p, sedes in master.paises.items() %}
+        <div class="sedes-grupo" data-pais="{{ p }}" style="display:none;">
+          <form method="POST" action="{{ url_for('admin_guardar') }}" id="form-sedes-{{ loop.index }}">
+            <input type="hidden" name="seccion" value="paises">
+            <input type="hidden" name="pais"    value="{{ p }}">
+            <input type="hidden" name="accion"  value="eliminar_sedes_seleccionadas" id="accion-sedes-{{ loop.index }}">
+
+            <div class="list-items" style="max-height:220px; overflow-y:auto;">
               {% for s in sedes %}
               <div class="list-item">
-                <span>{{ s }}</span>
-                <form method="POST" action="{{ url_for('admin_guardar') }}" style="display:inline">
-                  <input type="hidden" name="seccion" value="paises">
-                  <input type="hidden" name="accion"  value="eliminar_sede">
-                  <input type="hidden" name="pais"    value="{{ p }}">
-                  <input type="hidden" name="valor"   value="{{ s }}">
-                  <button class="btn btn-danger btn-sm">−</button>
-                </form>
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; flex:1;">
+                  <input type="checkbox" name="seleccionados" value="{{ s }}"
+                         style="accent-color:var(--gold); width:15px; height:15px;">
+                  {{ s }}
+                </label>
+                <button type="submit" class="btn btn-danger btn-sm"
+                        onclick="document.getElementById('accion-sedes-{{ loop.index }}').value='eliminar_sede';
+                                 document.querySelector('[name=valor]',this.closest('form')) || (function(){
+                                   var h=document.createElement('input');h.type='hidden';h.name='valor';h.value='{{ s }}';
+                                   document.getElementById('form-sedes-{{ loop.index }}').appendChild(h)})();">−</button>
               </div>
               {% endfor %}
             </div>
-            <form method="POST" action="{{ url_for('admin_guardar') }}" style="display:flex; gap:8px; margin-top:8px;">
+
+            <div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
+              <button type="submit" class="btn btn-danger btn-sm"
+                      onclick="document.getElementById('accion-sedes-{{ loop.index }}').value='eliminar_sedes_seleccionadas'"
+                      >🗑 Eliminar seleccionadas</button>
+              <button type="submit" class="btn btn-secondary btn-sm"
+                      onclick="document.getElementById('accion-sedes-{{ loop.index }}').value='ordenar_sedes'"
+                      >↑↓ Ordenar A-Z</button>
+            </div>
+          </form>
+
+          <form method="POST" action="{{ url_for('admin_guardar') }}" style="display:flex; gap:8px; margin-top:8px;">
+            <input type="hidden" name="seccion" value="paises">
+            <input type="hidden" name="accion"  value="agregar_sede">
+            <input type="hidden" name="pais"    value="{{ p }}">
+            <input type="text"   name="valor" placeholder="Nueva sede" style="flex:1;">
+            <button class="btn btn-primary btn-sm">+ Agregar</button>
+          </form>
+
+          <details style="margin-top:10px;">
+            <summary style="color:var(--gold); font-size:12px; cursor:pointer;">📋 Importar sedes en lote</summary>
+            <form method="POST" action="{{ url_for('admin_guardar') }}" style="margin-top:8px;">
               <input type="hidden" name="seccion" value="paises">
-              <input type="hidden" name="accion"  value="agregar_sede">
+              <input type="hidden" name="accion"  value="importar_sedes">
               <input type="hidden" name="pais"    value="{{ p }}">
-              <input type="text"   name="valor" placeholder="Nueva sede" style="flex:1;">
-              <button class="btn btn-primary btn-sm">+ Agregar</button>
+              <textarea name="valor" rows="5" placeholder="Una sede por línea"></textarea>
+              <button class="btn btn-primary btn-sm" style="margin-top:6px;">Importar y Grabar</button>
             </form>
-            <!-- Importar sedes -->
-            <details style="margin-top:10px;">
-              <summary style="color:var(--gold); font-size:12px; cursor:pointer;">📋 Importar sedes en lote</summary>
-              <form method="POST" action="{{ url_for('admin_guardar') }}" style="margin-top:8px;">
-                <input type="hidden" name="seccion" value="paises">
-                <input type="hidden" name="accion"  value="importar_sedes">
-                <input type="hidden" name="pais"    value="{{ p }}">
-                <textarea name="valor" rows="6" placeholder="Pegá una sede por línea&#10;Buenos Aires&#10;Córdoba&#10;Rosario..."></textarea>
-                <button class="btn btn-primary btn-sm" style="margin-top:8px;">Importar y Grabar</button>
-              </form>
-            </details>
-          </div>
-          {% endfor %}
+          </details>
         </div>
+        {% endfor %}
       </div>
     </div>
   </div>
@@ -93,36 +109,61 @@
 <div class="card">
   <div class="card-header"><h2>▸ {{ title }}</h2></div>
   <div class="card-body">
-    <div class="list-items">
-      {% for item in master[key] %}
-      <div class="list-item">
-        <span>{{ item }}</span>
-        <form method="POST" action="{{ url_for('admin_guardar') }}" style="display:inline">
-          <input type="hidden" name="seccion" value="{{ key }}">
-          <input type="hidden" name="accion"  value="eliminar">
-          <input type="hidden" name="valor"   value="{{ item }}">
-          <button class="btn btn-danger btn-sm">−</button>
-        </form>
+
+    <form method="POST" action="{{ url_for('admin_guardar') }}" id="form-{{ key }}">
+      <input type="hidden" name="seccion" value="{{ key }}">
+      <input type="hidden" name="accion"  value="eliminar_seleccionados" id="accion-{{ key }}">
+      <input type="hidden" name="valor"   value="">
+
+      <div class="list-items">
+        {% for item in master[key] %}
+        <div class="list-item">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; flex:1;">
+            <input type="checkbox" name="seleccionados" value="{{ item }}"
+                   style="accent-color:var(--gold); width:15px; height:15px;">
+            {{ item }}
+          </label>
+          <button type="submit" class="btn btn-danger btn-sm"
+                  onclick="document.getElementById('accion-{{ key }}').value='eliminar';
+                           document.querySelector('#form-{{ key }} [name=valor]').value='{{ item }}';">−</button>
+        </div>
+        {% endfor %}
       </div>
-      {% endfor %}
-    </div>
+
+      <!-- Acciones en lote -->
+      <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+        <button type="submit" class="btn btn-danger btn-sm"
+                onclick="document.getElementById('accion-{{ key }}').value='eliminar_seleccionados'">
+          🗑 Eliminar seleccionados
+        </button>
+        <button type="submit" class="btn btn-secondary btn-sm"
+                onclick="document.getElementById('accion-{{ key }}').value='ordenar'">
+          ↑↓ Ordenar A-Z
+        </button>
+        <button type="submit" class="btn btn-danger btn-sm"
+                onclick="return confirm('Borrar TODA la lista de {{ title }}?') &&
+                         (document.getElementById('accion-{{ key }}').value='borrar_todos') || false"
+                style="border-color:#CF4444;">
+          🗑🗑 Borrar toda la lista
+        </button>
+      </div>
+    </form>
 
     <!-- Agregar uno -->
-    <form method="POST" action="{{ url_for('admin_guardar') }}" style="display:flex; gap:8px; margin-bottom:12px;">
+    <form method="POST" action="{{ url_for('admin_guardar') }}" style="display:flex; gap:8px; margin-top:12px;">
       <input type="hidden" name="seccion" value="{{ key }}">
       <input type="hidden" name="accion"  value="agregar">
-      <input type="text"   name="valor" placeholder="Agregar {{ title[:-1]|lower }}..." style="flex:1;">
+      <input type="text"   name="valor" placeholder="Agregar nuevo..." style="flex:1;">
       <button class="btn btn-primary btn-sm">+ Agregar</button>
     </form>
 
     <!-- Importar en lote -->
-    <details>
-      <summary style="color:var(--gold); font-size:12px; cursor:pointer;">📋 Importar {{ title|lower }} en lote</summary>
+    <details style="margin-top:10px;">
+      <summary style="color:var(--gold); font-size:12px; cursor:pointer;">📋 Importar en lote</summary>
       <form method="POST" action="{{ url_for('admin_guardar') }}" style="margin-top:10px;">
         <input type="hidden" name="seccion" value="{{ key }}">
         <input type="hidden" name="accion"  value="importar">
-        <textarea name="valor" rows="8"
-                  placeholder="Pegá uno por línea (podés copiar desde Excel)&#10;Nombre 1&#10;Nombre 2&#10;..."></textarea>
+        <textarea name="valor" rows="8" placeholder="Uno por línea. Podés copiar desde Excel."></textarea>
         <button class="btn btn-primary btn-sm" style="margin-top:8px;">Importar y Grabar</button>
       </form>
     </details>
@@ -131,8 +172,6 @@
 {% endfor %}
 
 <script>
-const PAISES_DATA = {{ master.paises|tojson }};
-
 function mostrarSedes() {
   const pais = document.getElementById('sel-pais-admin').value;
   document.querySelectorAll('.sedes-grupo').forEach(el => {
