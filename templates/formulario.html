@@ -189,14 +189,30 @@
     </div>
     <div class="form-grid cols3" style="margin-top:8px;">
       {% for opc in range(3) %}
+      {% set campo_key = 'q'~qi~'_m'~mi~'_prof'~opc %}
       <div class="form-group">
         <label>Profesor {{ ['1ª','2ª','3ª'][opc] }} opción</label>
-        <select name="q{{ qi }}_m{{ mi }}_prof{{ opc }}">
+        <select name="{{ campo_key }}">
           <option value="">— Seleccionar —</option>
           {% for p in master.profesores %}
-            <option value="{{ p }}" {% if seminario.get('q'~qi~'_m'~mi~'_prof'~opc)==p %}selected{% endif %}>{{ p }}</option>
+            <option value="{{ p }}" {% if seminario.get(campo_key)==p %}selected{% endif %}>{{ p }}</option>
           {% endfor %}
         </select>
+        {% if opc == 0 and conflictos_profesor.get(campo_key) %}
+          {% for conf in conflictos_profesor[campo_key] %}
+          <div style="background:rgba(207,68,68,.15); border:1px solid #CF4444;
+                      border-radius:5px; padding:8px 10px; margin-top:6px;
+                      font-size:11px; grid-column:1/-1;">
+            <div style="color:#CF4444; font-weight:bold; letter-spacing:.5px;">
+              🚨 POSIBLE CONFLICTO DE AGENDA
+            </div>
+            <div style="color:#E8EDF4; margin-top:3px;">
+              <strong>{{ conf.profesor }}</strong> — {{ conf.seminario }}
+              {% if conf.diff_dias == 0 %}(mismas fechas){% else %}({{ conf.diff_dias }} días de diferencia){% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        {% endif %}
       </div>
       {% endfor %}
     </div>
