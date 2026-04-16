@@ -364,6 +364,25 @@ def admin_guardar():
         flash(f"Error al guardar: {str(e)}", "error")
     return redirect(url_for("admin"))
 
+@app.route("/preview")
+@login_required
+def preview():
+    seminarios = get_seminarios()
+    sel_id = request.args.get("id", type=int)
+    sel = None
+    coincidencias = []
+    conflictos_profesor = {}
+    if sel_id:
+        sel = next((s for s in seminarios if s.get("_db_id") == sel_id), None)
+        if sel:
+            coincidencias       = detectar_coincidencias(sel, seminarios)
+            conflictos_profesor = detectar_conflictos_profesor(sel, seminarios)
+    return render_template("preview.html",
+                           seminarios=seminarios, sel=sel, sel_id=sel_id,
+                           materias=MATERIAS, coincidencias=coincidencias,
+                           conflictos_profesor=conflictos_profesor)
+
+
 @app.route("/debug/seminario/<int:db_id>")
 @login_required
 def debug_seminario(db_id):
