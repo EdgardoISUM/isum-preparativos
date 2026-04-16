@@ -105,9 +105,32 @@ def delete_seminario(db_id):
     db_run("DELETE FROM seminarios WHERE id=:i", i=db_id)
 
 def parse_date(s):
-    for fmt in ("%d-%m-%Y","%d/%m/%Y","%d-%m-%y","%d/%m/%y"):
-        try: return datetime.strptime(s.strip(), fmt)
-        except: pass
+    if not s:
+        return None
+    s = s.strip()
+    # Normalizar: si el año tiene 2 digitos, expandir a 4
+    # Soporta: d-m-yy, d-m-yyyy, d/m/yy, d/m/yyyy
+    for fmt in ("%d-%m-%Y", "%d/%m/%Y", "%d-%m-%y", "%d/%m/%y",
+                "%-d-%-m-%Y", "%-d-%-m-%y"):
+        try:
+            d = datetime.strptime(s, fmt)
+            # Si el año parseado es < 100, agregar 2000
+            if d.year < 100:
+                d = d.replace(year=d.year + 2000)
+            return d
+        except:
+            pass
+    # Intento manual: separar por - o /
+    try:
+        sep = "-" if "-" in s else "/"
+        parts = s.split(sep)
+        if len(parts) == 3:
+            day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
+            if year < 100:
+                year += 2000
+            return datetime(year, month, day)
+    except:
+        pass
     return None
 
 def fmt_date(d): return d.strftime("%d-%m-%Y")
