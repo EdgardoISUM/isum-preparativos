@@ -112,6 +112,40 @@ def parse_date(s):
 
 def fmt_date(d): return d.strftime("%d-%m-%Y")
 
+def detectar_coincidencias(seminario_actual, todos):
+    """
+    Compara el seminario actual contra todos los demás.
+    Retorna lista de dicts con tipo ('simultaneo' o 'solapado') y descripción.
+    """
+    fi_a  = parse_date(seminario_actual.get("fecha_inicio",""))
+    fc_a  = parse_date(seminario_actual.get("fecha_clausura",""))
+    id_a  = seminario_actual.get("_db_id")
+
+    if not fi_a or not fc_a:
+        return []
+
+    coincidencias = []
+    for s in todos:
+        if s.get("_db_id") == id_a:
+            continue
+        fi_b = parse_date(s.get("fecha_inicio",""))
+        fc_b = parse_date(s.get("fecha_clausura",""))
+        if not fi_b or not fc_b:
+            continue
+
+        nombre_b = f"{s.get('pais','?')} – {s.get('sede','?')} – Sem. {s.get('num_sem','?')} ({s.get('anio','')})"
+
+        # Simultáneo: misma fecha inicio Y misma fecha clausura
+        if fi_a == fi_b and fc_a == fc_b:
+            coincidencias.append({"tipo": "simultaneo", "nombre": nombre_b})
+
+        # Solapado: rangos se superponen parcialmente (pero no son idénticos)
+        elif fi_a <= fc_b and fc_a >= fi_b and not (fi_a == fi_b and fc_a == fc_b):
+            coincidencias.append({"tipo": "solapado", "nombre": nombre_b})
+
+    return coincidencias
+
+
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -141,15 +175,19 @@ def index():
 @login_required
 def nuevo_seminario():
     return render_template("formulario.html", seminario={}, master=get_master(),
-                           materias=MATERIAS, modo="nuevo", db_id=None)
+                           materias=MATERIAS, modo="nuevo", db_id=None,
+                           coincidencias=[])
 
 @app.route("/seminario/<int:db_id>/editar")
 @login_required
 def editar_seminario(db_id):
     s = get_seminario_by_dbid(db_id)
     if not s: return redirect(url_for("index"))
+    todos = get_seminarios()
+    coincidencias = detectar_coincidencias(s, todos)
     return render_template("formulario.html", seminario=s, master=get_master(),
-                           materias=MATERIAS, modo="editar", db_id=db_id)
+                           materias=MATERIAS, modo="editar", db_id=db_id,
+                           coincidencias=coincidencias)
 
 @app.route("/seminario/guardar", methods=["POST"])
 @login_required
