@@ -341,6 +341,22 @@ def admin_guardar():
         flash(f"Error al guardar: {str(e)}", "error")
     return redirect(url_for("admin"))
 
+@app.route("/debug/seminario/<int:db_id>")
+@login_required
+def debug_seminario(db_id):
+    s = get_seminario_by_dbid(db_id)
+    todos = get_seminarios()
+    conflictos = detectar_conflictos_profesor(s, todos)
+    # Mostrar claves del seminario y conflictos encontrados
+    claves_prof = {k: v for k, v in s.items() if 'prof' in k}
+    return jsonify({
+        "claves_prof_en_seminario": claves_prof,
+        "conflictos_encontrados": conflictos,
+        "fecha_inicio": s.get("fecha_inicio",""),
+        "total_seminarios": len(todos)
+    })
+
+
 @app.route("/api/sedes")
 @login_required
 def api_sedes():
