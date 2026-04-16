@@ -2,6 +2,36 @@
 {% block title %}{{ 'Editar' if modo=='editar' else 'Nuevo' }} Seminario{% endblock %}
 {% block content %}
 
+{% if coincidencias %}
+<div style="margin-bottom:14px;">
+  {% for c in coincidencias %}
+    {% if c.tipo == 'simultaneo' %}
+    <div style="background:rgba(201,168,76,.15); border:2px solid #C9A84C;
+                border-radius:6px; padding:12px 18px; margin-bottom:8px;
+                display:flex; align-items:center; gap:10px;">
+      <span style="font-size:20px;">⚡</span>
+      <div>
+        <span style="color:#C9A84C; font-weight:bold; font-size:13px; text-transform:uppercase;
+                     letter-spacing:1px;">SIMULTÁNEO CON</span>
+        <div style="color:#E8EDF4; font-size:13px; margin-top:2px;">{{ c.nombre }}</div>
+      </div>
+    </div>
+    {% elif c.tipo == 'solapado' %}
+    <div style="background:rgba(207,68,68,.12); border:2px solid #CF4444;
+                border-radius:6px; padding:12px 18px; margin-bottom:8px;
+                display:flex; align-items:center; gap:10px;">
+      <span style="font-size:20px;">⚠️</span>
+      <div>
+        <span style="color:#CF4444; font-weight:bold; font-size:13px; text-transform:uppercase;
+                     letter-spacing:1px;">SOLAPADO CON</span>
+        <div style="color:#E8EDF4; font-size:13px; margin-top:2px;">{{ c.nombre }}</div>
+      </div>
+    </div>
+    {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+
 <div style="display:flex; align-items:center; gap:12px; margin-bottom:6px;">
   <a href="{{ url_for('index') }}" class="btn btn-secondary btn-sm">← Volver</a>
   <h2 style="color:var(--gold); font-family:Georgia,serif; font-size:18px;" id="titulo-dinamico">
