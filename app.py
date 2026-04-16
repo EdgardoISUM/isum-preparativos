@@ -1,57 +1,62 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
 from functools import wraps
-import os, json, time
+import os, json, time, urllib.parse
 from datetime import datetime, timedelta
 import pg8000.native
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "isum_secret_cambiar")
-APP_PASSWORD   = os.environ.get("ISUM_PASSWORD", "isum2024")
-DATABASE_URL   = os.environ.get("DATABASE_URL", "")
+APP_PASSWORD  = os.environ.get("ISUM_PASSWORD", "isum2024")
+DATABASE_URL  = os.environ.get("DATABASE_URL", "")
 
 MATERIAS = {
     "I":        ["Didactica Avanzada",          "Liderazgo y Administracion",                   "Galatas, Juaninas",         "Psicologia Pastoral"],
     "II":       ["Etica Ministerial",            "Profetas Mayores: Isaias",                     "Cristologia en Levitico",   "Hermeneutica Avanzada"],
     "III":      ["Teologia del Espiritu Santo",  "Misionologia: Comunicaciones Transculturales", "Cristologia en Juan",       "Homiletica: Predicacion Expositiva"],
-    "PROYECTO": ["PROYECTO",                     "PROYECTO",                                     "PROYECTO",                  "PROYECTO"],
+    "PROYECTO": ["PROYECTO","PROYECTO","PROYECTO","PROYECTO"],
 }
 
 DEFAULT_MASTER = {
     "paises":     {"Argentina": ["Buenos Aires","Cordoba","Rosario"],
                    "Mexico":    ["Ciudad de Mexico","Guadalajara","Monterrey"],
                    "Colombia":  ["Bogota","Medellin","Cali"]},
-    "directores": ["Director 1","Director 2","Director 3"],
-    "profesores": ["Profesor A","Profesor B","Profesor C"],
+    "directores": [],
+    "profesores": [],
     "honorarios": ["$500","$750","$1000","$1250","$1500","$2000"],
 }
 
 def parse_db_url(url):
-    """Parsea postgresql://user:pass@host:port/dbname"""
+    url = url.strip()
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql://", 1)
-    url = url.replace("postgresql://", "")
-    user_pass, rest = url.split("@", 1)
-    user, password   = user_pass.split(":", 1)
-    host_port, dbname = rest.split("/", 1)
-    if ":" in host_port:
-        host, port = host_port.split(":", 1)
-        port = int(port)
-    else:
-        host = host_port
-        port = 5432
-    return {"user": user, "password": password, "host": host, "port": port, "database": dbname}
+    parsed = urllib.parse.urlparse(url)
+    return {
+        "user":     urllib.parse.unquote(parsed.username or ""),
+        "password": urllib.parse.unquote(parsed.password or ""),
+        "host":     parsed.hostname or "",
+        "port":     parsed.port or 5432,
+        "database": (parsed.path or "/postgres").lstrip("/"),
+    }
 
 def get_conn():
-    params = parse_db_url(DATABASE_URL)
+    p = parse_db_url(DATABASE_URL)
     return pg8000.native.Connection(
-        user=params["user"], password=params["password"],
-        host=params["host"], port=params["port"],
-        database=params["database"], ssl_context=True
+        user=p["user"], password=p["password"],
+        host=p["host"], port=p["port"],
+        database=p["database"], ssl_context=True
     )
 
-def init_db():
+def db_run(sql, **params):
+    """Ejecuta una query y retorna filas (o [] si no hay resultados)."""
     conn = get_conn()
-    conn.run("""
+    try:
+        result = conn.run(sql, **params)
+        return result or []
+    finally:
+        conn.close()
+
+def init_db():
+    db_run("""
         CREATE TABLE IF NOT EXISTS seminarios (
             id      SERIAL PRIMARY KEY,
             datos   TEXT NOT NULL,
@@ -59,47 +64,44 @@ def init_db():
             updated TIMESTAMP DEFAULT NOW()
         )
     """)
-    conn.run("""
+    db_run("""
         CREATE TABLE IF NOT EXISTS master (
             id    SERIAL PRIMARY KEY,
             datos TEXT NOT NULL
         )
     """)
-    rows = conn.run("SELECT COUNT(*) as n FROM master")
-    if rows[0][0] == 0:
-        conn.run("INSERT INTO master (datos) VALUES (:d)", d=json.dumps(DEFAULT_MASTER))
-    conn.close()
+    rows = db_run("SELECT COUNT(*) FROM master")
+    if not rows or rows[0][0] == 0:
+        db_run("INSERT INTO master (datos) VALUES (:d)",
+               d=json.dumps(DEFAULT_MASTER))
 
 for intento in range(5):
     try:
         init_db(); break
     except Exception as e:
-        if intento < 4: time.sleep(2)
+        if intento < 4: time.sleep(3)
         else: print(f"ERROR init_db: {e}")
 
 def get_master():
     try:
-        conn = get_conn()
-        rows = conn.run("SELECT datos FROM master ORDER BY id LIMIT 1")
-        conn.close()
+        rows = db_run("SELECT datos FROM master ORDER BY id LIMIT 1")
         return json.loads(rows[0][0]) if rows else DEFAULT_MASTER
-    except:
+    except Exception as e:
+        print(f"get_master error: {e}")
         return DEFAULT_MASTER
 
 def save_master(data):
-    conn = get_conn()
-    rows = conn.run("SELECT id FROM master ORDER BY id LIMIT 1")
+    rows = db_run("SELECT id FROM master ORDER BY id LIMIT 1")
     if rows:
-        conn.run("UPDATE master SET datos=:d WHERE id=:i", d=json.dumps(data), i=rows[0][0])
+        db_run("UPDATE master SET datos=:d WHERE id=:i",
+               d=json.dumps(data, ensure_ascii=False), i=rows[0][0])
     else:
-        conn.run("INSERT INTO master (datos) VALUES (:d)", d=json.dumps(data))
-    conn.close()
+        db_run("INSERT INTO master (datos) VALUES (:d)",
+               d=json.dumps(data, ensure_ascii=False))
 
 def get_seminarios():
     try:
-        conn = get_conn()
-        rows = conn.run("SELECT id, datos FROM seminarios ORDER BY id")
-        conn.close()
+        rows = db_run("SELECT id, datos FROM seminarios ORDER BY id")
         result = []
         for r in rows:
             d = json.loads(r[1])
@@ -110,9 +112,7 @@ def get_seminarios():
         return []
 
 def get_seminario_by_dbid(db_id):
-    conn = get_conn()
-    rows = conn.run("SELECT id, datos FROM seminarios WHERE id=:i", i=db_id)
-    conn.close()
+    rows = db_run("SELECT id, datos FROM seminarios WHERE id=:i", i=db_id)
     if rows:
         d = json.loads(rows[0][1])
         d["_db_id"] = rows[0][0]
@@ -120,19 +120,16 @@ def get_seminario_by_dbid(db_id):
     return None
 
 def save_seminario(data, db_id=None):
-    data_clean = {k: v for k, v in data.items() if k != "_db_id"}
-    conn = get_conn()
+    clean = {k: v for k, v in data.items() if k != "_db_id"}
     if db_id:
-        conn.run("UPDATE seminarios SET datos=:d, updated=NOW() WHERE id=:i",
-                 d=json.dumps(data_clean), i=db_id)
+        db_run("UPDATE seminarios SET datos=:d, updated=NOW() WHERE id=:i",
+               d=json.dumps(clean, ensure_ascii=False), i=db_id)
     else:
-        conn.run("INSERT INTO seminarios (datos) VALUES (:d)", d=json.dumps(data_clean))
-    conn.close()
+        db_run("INSERT INTO seminarios (datos) VALUES (:d)",
+               d=json.dumps(clean, ensure_ascii=False))
 
 def delete_seminario(db_id):
-    conn = get_conn()
-    conn.run("DELETE FROM seminarios WHERE id=:i", i=db_id)
-    conn.close()
+    db_run("DELETE FROM seminarios WHERE id=:i", i=db_id)
 
 def parse_date(s):
     for fmt in ("%d-%m-%Y","%d/%m/%Y","%d-%m-%y","%d/%m/%y"):
@@ -154,7 +151,8 @@ def login_required(f):
 def login():
     error = None
     if request.method == "POST":
-        if request.form.get("password") == APP_PASSWORD:
+        pwd = request.form.get("password","").strip()
+        if pwd == APP_PASSWORD:
             session["logged_in"] = True
             return redirect(url_for("index"))
         error = "Contrasena incorrecta"
@@ -168,24 +166,23 @@ def logout():
 @app.route("/")
 @login_required
 def index():
-    seminarios = get_seminarios()
-    return render_template("index.html", seminarios=seminarios)
+    return render_template("index.html", seminarios=get_seminarios())
 
 @app.route("/seminario/nuevo")
 @login_required
 def nuevo_seminario():
-    master = get_master()
-    return render_template("formulario.html", seminario={}, master=master,
-                           materias=MATERIAS, modo="nuevo", db_id=None)
+    return render_template("formulario.html", seminario={},
+                           master=get_master(), materias=MATERIAS,
+                           modo="nuevo", db_id=None)
 
 @app.route("/seminario/<int:db_id>/editar")
 @login_required
 def editar_seminario(db_id):
     s = get_seminario_by_dbid(db_id)
     if not s: return redirect(url_for("index"))
-    master = get_master()
-    return render_template("formulario.html", seminario=s, master=master,
-                           materias=MATERIAS, modo="editar", db_id=db_id)
+    return render_template("formulario.html", seminario=s,
+                           master=get_master(), materias=MATERIAS,
+                           modo="editar", db_id=db_id)
 
 @app.route("/seminario/guardar", methods=["POST"])
 @login_required
@@ -213,47 +210,51 @@ def eliminar_seminario(db_id):
 @app.route("/admin")
 @login_required
 def admin():
-    master = get_master()
-    return render_template("admin.html", master=master)
+    return render_template("admin.html", master=get_master())
 
 @app.route("/admin/guardar", methods=["POST"])
 @login_required
 def admin_guardar():
-    master  = get_master()
-    seccion = request.form.get("seccion")
-    accion  = request.form.get("accion")
-    valor   = request.form.get("valor","").strip()
+    try:
+        master  = get_master()
+        seccion = request.form.get("seccion","")
+        accion  = request.form.get("accion","")
+        valor   = request.form.get("valor","").strip()
 
-    if seccion in ("directores","profesores","honorarios"):
-        if accion == "agregar" and valor and valor not in master[seccion]:
-            master[seccion].append(valor)
-        elif accion == "eliminar" and valor in master[seccion]:
-            master[seccion].remove(valor)
-        elif accion == "importar":
-            lineas = [l.strip() for l in valor.splitlines() if l.strip()]
-            nuevos = [i for i in lineas if i not in master[seccion]]
-            master[seccion].extend(nuevos)
-            flash(f"{len(nuevos)} registros importados.", "ok")
-    elif seccion == "paises":
-        pais = request.form.get("pais","").strip()
-        if accion == "agregar_pais" and valor and valor not in master["paises"]:
-            master["paises"][valor] = []
-        elif accion == "eliminar_pais" and valor in master["paises"]:
-            del master["paises"][valor]
-        elif accion == "agregar_sede" and pais in master["paises"]:
-            if valor and valor not in master["paises"][pais]:
-                master["paises"][pais].append(valor)
-        elif accion == "eliminar_sede" and pais in master["paises"]:
-            if valor in master["paises"][pais]:
-                master["paises"][pais].remove(valor)
-        elif accion == "importar_sedes" and pais in master["paises"]:
-            lineas = [l.strip() for l in valor.splitlines() if l.strip()]
-            nuevos = [i for i in lineas if i not in master["paises"][pais]]
-            master["paises"][pais].extend(nuevos)
-            flash(f"{len(nuevos)} sedes importadas.", "ok")
+        if seccion in ("directores","profesores","honorarios"):
+            if accion == "agregar" and valor and valor not in master[seccion]:
+                master[seccion].append(valor)
+            elif accion == "eliminar" and valor in master[seccion]:
+                master[seccion].remove(valor)
+            elif accion == "importar":
+                lineas = [l.strip() for l in valor.splitlines() if l.strip()]
+                nuevos = [i for i in lineas if i not in master[seccion]]
+                master[seccion].extend(nuevos)
+                flash(f"{len(nuevos)} registros importados.", "ok")
 
-    save_master(master)
-    flash("Datos guardados correctamente.", "ok")
+        elif seccion == "paises":
+            pais = request.form.get("pais","").strip()
+            if accion == "agregar_pais" and valor and valor not in master["paises"]:
+                master["paises"][valor] = []
+            elif accion == "eliminar_pais" and valor in master["paises"]:
+                del master["paises"][valor]
+            elif accion == "agregar_sede" and pais in master["paises"]:
+                if valor and valor not in master["paises"][pais]:
+                    master["paises"][pais].append(valor)
+            elif accion == "eliminar_sede" and pais in master["paises"]:
+                if valor in master["paises"][pais]:
+                    master["paises"][pais].remove(valor)
+            elif accion == "importar_sedes" and pais in master["paises"]:
+                lineas = [l.strip() for l in valor.splitlines() if l.strip()]
+                nuevos = [i for i in lineas if i not in master["paises"][pais]]
+                master["paises"][pais].extend(nuevos)
+                flash(f"{len(nuevos)} sedes importadas.", "ok")
+
+        save_master(master)
+        flash("Datos guardados correctamente.", "ok")
+    except Exception as e:
+        flash(f"Error al guardar: {str(e)}", "error")
+
     return redirect(url_for("admin"))
 
 @app.route("/api/sedes")
