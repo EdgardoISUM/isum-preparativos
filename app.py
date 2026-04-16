@@ -112,6 +112,56 @@ def parse_date(s):
 
 def fmt_date(d): return d.strftime("%d-%m-%Y")
 
+def detectar_conflictos_profesor(seminario_actual, todos):
+    """
+    Para cada profesor 1a opcion de cada materia del seminario actual,
+    busca si ese profesor aparece como 1a opcion en otro seminario
+    cuya fecha de inicio este dentro de +/- 15 dias.
+    Retorna dict: {campo: [(nombre_profesor, nombre_seminario), ...]}
+    """
+    fi_a = parse_date(seminario_actual.get("fecha_inicio",""))
+    id_a = seminario_actual.get("_db_id")
+    if not fi_a:
+        return {}
+
+    # Campos de profesor 1a opcion: q0_m0_prof0, q0_m1_prof0, q1_m0_prof0, q1_m1_prof0
+    campos_prof = [
+        ("q0_m0_prof0", "Materia 1"),
+        ("q0_m1_prof0", "Materia 2"),
+        ("q1_m0_prof0", "Materia 3"),
+        ("q1_m1_prof0", "Materia 4"),
+    ]
+
+    conflictos = {}
+    for campo, label in campos_prof:
+        prof = seminario_actual.get(campo,"").strip()
+        if not prof:
+            continue
+        for s in todos:
+            if s.get("_db_id") == id_a:
+                continue
+            fi_b = parse_date(s.get("fecha_inicio",""))
+            if not fi_b:
+                continue
+            diff = abs((fi_a - fi_b).days)
+            if diff <= 15:
+                # Verifica si ese profesor es 1a opcion en ese otro seminario
+                for c2, _ in campos_prof:
+                    if s.get(c2,"").strip() == prof:
+                        nombre_sem = (f"{s.get('pais','?')} – {s.get('sede','?')} – "
+                                      f"Sem. {s.get('num_sem','?')} ({s.get('anio','')})")
+                        if campo not in conflictos:
+                            conflictos[campo] = []
+                        conflictos[campo].append({
+                            "profesor": prof,
+                            "seminario": nombre_sem,
+                            "label": label,
+                            "diff_dias": diff,
+                        })
+                        break
+    return conflictos
+
+
 def detectar_coincidencias(seminario_actual, todos):
     """
     Compara el seminario actual contra todos los demás.
@@ -176,7 +226,8 @@ def index():
 def nuevo_seminario():
     return render_template("formulario.html", seminario={}, master=get_master(),
                            materias=MATERIAS, modo="nuevo", db_id=None,
-                           coincidencias=[])
+                           coincidencias=[],
+                           conflictos_profesor={})
 
 @app.route("/seminario/<int:db_id>/editar")
 @login_required
@@ -184,10 +235,12 @@ def editar_seminario(db_id):
     s = get_seminario_by_dbid(db_id)
     if not s: return redirect(url_for("index"))
     todos = get_seminarios()
-    coincidencias = detectar_coincidencias(s, todos)
+    coincidencias        = detectar_coincidencias(s, todos)
+    conflictos_profesor  = detectar_conflictos_profesor(s, todos)
     return render_template("formulario.html", seminario=s, master=get_master(),
                            materias=MATERIAS, modo="editar", db_id=db_id,
-                           coincidencias=coincidencias)
+                           coincidencias=coincidencias,
+                           conflictos_profesor=conflictos_profesor)
 
 @app.route("/seminario/guardar", methods=["POST"])
 @login_required
