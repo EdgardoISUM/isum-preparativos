@@ -118,7 +118,8 @@ tr:hover td { background: rgba(46,74,107,.3); }
   </div>
   <nav>
     <a href="{{ url_for('index') }}"   {% if request.endpoint=='index'   %}class="active"{% endif %}>Seminarios</a>
-    <a href="{{ url_for('preview') }}" {% if request.endpoint=='preview'  %}class="active"{% endif %}>Preview</a>
+    <a href="{{ url_for('preview') }}"  {% if request.endpoint=='preview'  %}class="active"{% endif %}>Preview</a>
+    <a href="{{ url_for('reporte') }}"  {% if request.endpoint=='reporte'  %}class="active"{% endif %}>Reporte</a>
     <a href="{{ url_for('admin') }}"   {% if request.endpoint=='admin'    %}class="active"{% endif %}>Administración</a>
     <form action="{{ url_for('logout') }}" method="get" style="display:inline">
       <button class="btn-logout">Salir</button>
