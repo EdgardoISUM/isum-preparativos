@@ -364,6 +364,71 @@ def admin_guardar():
         flash(f"Error al guardar: {str(e)}", "error")
     return redirect(url_for("admin"))
 
+@app.route("/reporte")
+@login_required
+def reporte():
+    seminarios = get_seminarios()
+    master     = get_master()
+
+    # ── Filtros desde query string ────────────────────────────────────────────
+    f_pais     = request.args.get("pais","").strip()
+    f_sede     = request.args.get("sede","").strip()
+    f_director = request.args.get("director","").strip().lower()
+    f_fecha_desde = request.args.get("fecha_desde","").strip()
+    f_fecha_hasta = request.args.get("fecha_hasta","").strip()
+    orden      = request.args.get("orden","fecha")  # fecha | pais | sede
+
+    fd = parse_date(f_fecha_desde)
+    fh = parse_date(f_fecha_hasta)
+
+    def match(s):
+        if f_pais and s.get("pais","") != f_pais:
+            return False
+        if f_sede and s.get("sede","") != f_sede:
+            return False
+        if f_director:
+            d1 = s.get("director1","").lower()
+            d2 = s.get("director2","").lower()
+            if f_director not in d1 and f_director not in d2:
+                return False
+        fi = parse_date(s.get("fecha_inicio",""))
+        if fd and fi and fi < fd:
+            return False
+        if fh and fi and fi > fh:
+            return False
+        return True
+
+    resultados = [s for s in seminarios if match(s)]
+
+    # ── Ordenamiento ──────────────────────────────────────────────────────────
+    def sort_key(s):
+        if orden == "pais":
+            return (s.get("pais",""), s.get("sede",""))
+        elif orden == "sede":
+            return (s.get("sede",""), s.get("pais",""))
+        else:  # fecha (default)
+            fi = parse_date(s.get("fecha_inicio",""))
+            return fi if fi else datetime(9999,1,1)
+
+    resultados.sort(key=sort_key)
+
+    # Sedes disponibles según país seleccionado
+    sedes_disponibles = master["paises"].get(f_pais, []) if f_pais else []
+
+    return render_template("reporte.html",
+                           resultados=resultados,
+                           materias=MATERIAS,
+                           paises=list(master["paises"].keys()),
+                           sedes_disponibles=sedes_disponibles,
+                           directores=master["directores"],
+                           f_pais=f_pais, f_sede=f_sede,
+                           f_director=f_director,
+                           f_fecha_desde=f_fecha_desde,
+                           f_fecha_hasta=f_fecha_hasta,
+                           orden=orden,
+                           total=len(seminarios))
+
+
 @app.route("/preview")
 @login_required
 def preview():
