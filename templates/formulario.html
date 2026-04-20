@@ -399,54 +399,65 @@ function openCal(inputId) {
   var parsed = parseDate(input.value);
   CAL_YEAR   = parsed ? parsed.getFullYear() : new Date().getFullYear();
   CAL_MONTH  = parsed ? parsed.getMonth()    : new Date().getMonth();
+  positionCal(input);
   drawCal();
+  return false;
+}
+
+function positionCal(input) {
   var cal  = document.getElementById('isum-cal');
   var rect = input.getBoundingClientRect();
   cal.style.top     = (rect.bottom + window.scrollY + 6) + 'px';
   cal.style.left    = (rect.left   + window.scrollX)     + 'px';
   cal.style.display = 'block';
-  return false;
 }
 
 function closeCal() {
   document.getElementById('isum-cal').style.display = 'none';
 }
 
-function prevMonth() { CAL_MONTH--; if(CAL_MONTH<0){CAL_MONTH=11;CAL_YEAR--;} drawCal(); }
-function nextMonth() { CAL_MONTH++; if(CAL_MONTH>11){CAL_MONTH=0;CAL_YEAR++;} drawCal(); }
-
 function drawCal() {
-  var cal   = document.getElementById('isum-cal');
-  var input = document.getElementById(CAL_TARGET);
-  var sel   = parseDate(input.value);
-  var hoy   = new Date();
+  var cal      = document.getElementById('isum-cal');
+  var input    = document.getElementById(CAL_TARGET);
+  var sel      = parseDate(input ? input.value : '');
+  var hoy      = new Date();
 
-  var html = '<div class="cal-header">'
-           + '<button type="button" onclick="prevMonth()">&#8249;</button>'
-           + '<strong>' + CAL_MESES[CAL_MONTH] + ' ' + CAL_YEAR + '</strong>'
-           + '<button type="button" onclick="nextMonth()">&#8250;</button>'
-           + '</div><div class="cal-grid">';
+  // Cabecera
+  document.getElementById('cal-mes-label').textContent = CAL_MESES[CAL_MONTH] + ' ' + CAL_YEAR;
 
+  // Grilla de días
+  var grid = document.getElementById('cal-grid-body');
+  var html = '';
   CAL_DIAS.forEach(function(d){ html += '<div class="cal-dow">'+d+'</div>'; });
 
   var firstDay = new Date(CAL_YEAR, CAL_MONTH, 1).getDay();
-  firstDay = firstDay === 0 ? 6 : firstDay - 1;
-  for(var i=0; i<firstDay; i++) html += '<div></div>';
+  firstDay = (firstDay === 0) ? 6 : firstDay - 1;
+  for(var i = 0; i < firstDay; i++) html += '<div></div>';
 
-  var totalDias = new Date(CAL_YEAR, CAL_MONTH+1, 0).getDate();
-  for(var d=1; d<=totalDias; d++){
+  var totalDias = new Date(CAL_YEAR, CAL_MONTH + 1, 0).getDate();
+  for(var d = 1; d <= totalDias; d++){
     var cls = 'cal-day';
-    if(d===hoy.getDate() && CAL_MONTH===hoy.getMonth() && CAL_YEAR===hoy.getFullYear()) cls+=' cal-today';
-    if(sel && d===sel.getDate() && CAL_MONTH===sel.getMonth() && CAL_YEAR===sel.getFullYear()) cls+=' cal-sel';
-    html += '<div class="'+cls+'" onclick="pickDay('+d+')">'+d+'</div>';
+    if(d === hoy.getDate() && CAL_MONTH === hoy.getMonth() && CAL_YEAR === hoy.getFullYear())
+      cls += ' cal-today';
+    if(sel && d === sel.getDate() && CAL_MONTH === sel.getMonth() && CAL_YEAR === sel.getFullYear())
+      cls += ' cal-sel';
+    html += '<div class="'+cls+'" data-day="'+d+'">'+d+'</div>';
   }
-  html += '</div><div class="cal-footer"><button type="button" onclick="closeCal()">Cerrar</button></div>';
-  cal.innerHTML = html;
+  grid.innerHTML = html;
+
+  // Eventos en los días via delegación (no inline onclick)
+  grid.onclick = function(e) {
+    var target = e.target;
+    if(target.dataset.day) {
+      e.stopPropagation();
+      pickDay(parseInt(target.dataset.day));
+    }
+  };
 }
 
 function pickDay(day) {
   var dd  = String(day).padStart(2,'0');
-  var mm  = String(CAL_MONTH+1).padStart(2,'0');
+  var mm  = String(CAL_MONTH + 1).padStart(2,'0');
   var val = dd + '-' + mm + '-' + CAL_YEAR;
   document.getElementById(CAL_TARGET).value = val;
   closeCal();
@@ -454,6 +465,7 @@ function pickDay(day) {
   else if(CAL_TARGET === 'f-2q') calcClausura();
 }
 
+// Cerrar al hacer clic afuera
 document.addEventListener('click', function(e) {
   var cal = document.getElementById('isum-cal');
   if(!cal || cal.style.display !== 'block') return;
@@ -468,7 +480,19 @@ document.addEventListener('click', function(e) {
 
 <div id="isum-cal" style="display:none; position:absolute; z-index:9999;
      background:#1E2D42; border:1px solid #2E4A6B; border-radius:8px;
-     box-shadow:0 8px 32px rgba(0,0,0,.6); width:264px;"></div>
+     box-shadow:0 8px 32px rgba(0,0,0,.6); width:272px;">
+  <div class="cal-header">
+    <button type="button" id="cal-prev"
+            onclick="event.stopPropagation(); CAL_MONTH--; if(CAL_MONTH<0){CAL_MONTH=11;CAL_YEAR--;} drawCal();">&#8249;</button>
+    <strong id="cal-mes-label"></strong>
+    <button type="button" id="cal-next"
+            onclick="event.stopPropagation(); CAL_MONTH++; if(CAL_MONTH>11){CAL_MONTH=0;CAL_YEAR++;} drawCal();">&#8250;</button>
+  </div>
+  <div id="cal-grid-body" class="cal-grid"></div>
+  <div class="cal-footer">
+    <button type="button" onclick="event.stopPropagation(); closeCal();">Cerrar</button>
+  </div>
+</div>
 
 <style>
 .date-input-wrap { display:flex; }
