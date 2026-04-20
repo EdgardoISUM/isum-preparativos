@@ -111,8 +111,7 @@
         <div class="date-input-wrap">
           <input type="text" name="fecha_inicio" id="f-inicio"
                  value="{{ seminario.get('fecha_inicio','') }}"
-                 placeholder="dd-mm-aaaa" oninput="calcFechas()" autocomplete="off"
-                 onfocus="openCal('f-inicio')" readonly>
+                 placeholder="dd-mm-aaaa" oninput="calcFechas()" autocomplete="off">
           <button type="button" class="cal-btn" onclick="openCal('f-inicio')">📅</button>
         </div>
       </div>
@@ -121,8 +120,7 @@
         <div class="date-input-wrap">
           <input type="text" name="fecha_inicio_2q" id="f-2q"
                  value="{{ seminario.get('fecha_inicio_2q','') }}"
-                 placeholder="dd-mm-aaaa" oninput="calcClausura()" autocomplete="off"
-                 onfocus="openCal('f-2q')" readonly>
+                 placeholder="dd-mm-aaaa" oninput="calcClausura()" autocomplete="off">
           <button type="button" class="cal-btn" onclick="openCal('f-2q')">📅</button>
         </div>
       </div>
