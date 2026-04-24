@@ -2,10 +2,28 @@
 {% block title %}Seminarios{% endblock %}
 {% block content %}
 
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
   <h2 style="color:var(--gold); font-family:Georgia,serif; font-size:20px;">Seminarios Registrados</h2>
-  <a href="{{ url_for('nuevo_seminario') }}" class="btn btn-primary">+ Nuevo Seminario</a>
+  <div style="display:flex; gap:10px; align-items:center;">
+    <span style="color:var(--text-dim); font-size:12px;">Ordenar por fecha:</span>
+    <a href="{{ url_for('index') }}?orden=fecha"
+       class="btn btn-secondary btn-sm {% if orden=='fecha' %}active-sort{% endif %}">
+      ↑ Más antiguo
+    </a>
+    <a href="{{ url_for('index') }}?orden=fecha_desc"
+       class="btn btn-secondary btn-sm {% if orden=='fecha_desc' %}active-sort{% endif %}">
+      ↓ Más reciente
+    </a>
+    <a href="{{ url_for('index') }}?orden=id"
+       class="btn btn-secondary btn-sm {% if orden=='id' or not orden %}active-sort{% endif %}">
+      # Ingreso
+    </a>
+    <a href="{{ url_for('nuevo_seminario') }}" class="btn btn-primary">+ Nuevo</a>
+  </div>
 </div>
+<style>
+.active-sort { background: var(--gold) !important; color: var(--bg) !important; }
+</style>
 
 {% if seminarios %}
 <form method="POST" action="{{ url_for('eliminar_varios_seminarios') }}"
