@@ -399,6 +399,10 @@ function sincronizarQuincenas(qi) {
   actualizarFechasQuincenas(fi, fi2q);
 }
 
+// Listas master para autocomplete
+var LISTA_DIRECTORES = {{ master.directores | tojson }};
+var LISTA_PROFESORES = {{ master.profesores | tojson }};
+
 // Inicializar al cargar
 actualizarMaterias();
 actualizarTitulo();
@@ -479,16 +483,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  // Registrar todos los campos
+  // Registrar todos los campos con las listas JS (no desde HTML)
   document.querySelectorAll('.sc-wrap').forEach(function(wrap) {
-    var textInput   = wrap.querySelector('.sc-input');
-    var hiddenInput = wrap.querySelector('input[type=hidden]');
-    var items       = wrap.querySelectorAll('.sc-item');
-    var opts = [];
-    items.forEach(function(i){ opts.push(i.dataset.val); });
+    var textInput = wrap.querySelector('.sc-input');
     var id = 'sc_' + Math.random().toString(36).slice(2);
     textInput.dataset.scId = id;
-    SC_OPTIONS[id] = opts;
+    // Determinar si es director o profesor por el name del hidden
+    var hidden = wrap.querySelector('input[type=hidden]');
+    var fname  = hidden ? hidden.name : '';
+    if(fname.indexOf('director') >= 0) {
+      SC_OPTIONS[id] = LISTA_DIRECTORES;
+    } else {
+      SC_OPTIONS[id] = LISTA_PROFESORES;
+    }
   });
 });
 
