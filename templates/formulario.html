@@ -140,21 +140,33 @@
     <div class="form-grid">
       <div class="form-group">
         <label>Director 1ª Quincena</label>
-        <select name="director1">
-          <option value="">— Seleccionar —</option>
-          {% for d in master.directores %}
-            <option value="{{ d }}" {% if seminario.get('director1')==d %}selected{% endif %}>{{ d }}</option>
-          {% endfor %}
-        </select>
+        <div class="sc-wrap">
+          <input type="text" class="sc-input" autocomplete="off"
+                 placeholder="Escribí para buscar..."
+                 value="{{ seminario.get('director1','') }}"
+                 oninput="scFilter(this)">
+          <input type="hidden" name="director1" value="{{ seminario.get('director1','') }}">
+          <div class="sc-list" style="display:none;">
+            {% for d in master.directores %}
+            <div class="sc-item" data-val="{{ d }}" onclick="scSelect(this)">{{ d }}</div>
+            {% endfor %}
+          </div>
+        </div>
       </div>
       <div class="form-group">
         <label>Director 2ª Quincena</label>
-        <select name="director2">
-          <option value="">— Seleccionar —</option>
-          {% for d in master.directores %}
-            <option value="{{ d }}" {% if seminario.get('director2')==d %}selected{% endif %}>{{ d }}</option>
-          {% endfor %}
-        </select>
+        <div class="sc-wrap">
+          <input type="text" class="sc-input" autocomplete="off"
+                 placeholder="Escribí para buscar..."
+                 value="{{ seminario.get('director2','') }}"
+                 oninput="scFilter(this)">
+          <input type="hidden" name="director2" value="{{ seminario.get('director2','') }}">
+          <div class="sc-list" style="display:none;">
+            {% for d in master.directores %}
+            <div class="sc-item" data-val="{{ d }}" onclick="scSelect(this)">{{ d }}</div>
+            {% endfor %}
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -198,12 +210,18 @@
       {% set campo_key = 'q'~qi~'_m'~mi~'_prof'~opc %}
       <div class="form-group">
         <label>Profesor {{ ['1ª','2ª','3ª'][opc] }} opción</label>
-        <select name="{{ campo_key }}">
-          <option value="">— Seleccionar —</option>
-          {% for p in master.profesores %}
-            <option value="{{ p }}" {% if seminario.get(campo_key)==p %}selected{% endif %}>{{ p }}</option>
-          {% endfor %}
-        </select>
+        <div class="sc-wrap">
+          <input type="text" class="sc-input" autocomplete="off"
+                 placeholder="Escribí para buscar..."
+                 value="{{ seminario.get(campo_key,'') }}"
+                 oninput="scFilter(this)">
+          <input type="hidden" name="{{ campo_key }}" value="{{ seminario.get(campo_key,'') }}">
+          <div class="sc-list" style="display:none;">
+            {% for p in master.profesores %}
+            <div class="sc-item" data-val="{{ p }}" onclick="scSelect(this)">{{ p }}</div>
+            {% endfor %}
+          </div>
+        </div>
         {% if opc == 0 and conflictos_profesor.get(campo_key) %}
           {% for conf in conflictos_profesor[campo_key] %}
           <div style="background:rgba(207,68,68,.15); border:1px solid #CF4444;
@@ -385,6 +403,56 @@ function sincronizarQuincenas(qi) {
 actualizarMaterias();
 actualizarTitulo();
 
+// ── Buscador con autocomplete ─────────────────────────────────────────────────
+function scFilter(input) {
+  var wrap  = input.closest('.sc-wrap');
+  var list  = wrap.querySelector('.sc-list');
+  var query = input.value.toLowerCase().trim();
+  var items = list.querySelectorAll('.sc-item');
+  var visible = 0;
+
+  items.forEach(function(item) {
+    var match = item.dataset.val.toLowerCase().indexOf(query) >= 0;
+    item.style.display = match ? 'block' : 'none';
+    if(match) visible++;
+  });
+
+  list.style.display = (query.length > 0 && visible > 0) ? 'block' : 'none';
+
+  // Si el campo queda vacío, limpiar el hidden
+  if(query === '') {
+    wrap.querySelector('input[type=hidden]').value = '';
+  }
+}
+
+function scSelect(item) {
+  var val  = item.dataset.val;
+  var wrap = item.closest('.sc-wrap');
+  wrap.querySelector('.sc-input').value = val;
+  wrap.querySelector('input[type=hidden]').value = val;
+  wrap.querySelector('.sc-list').style.display = 'none';
+}
+
+// Mostrar todas las opciones al hacer foco
+document.addEventListener('focusin', function(e) {
+  if(e.target.classList.contains('sc-input')) {
+    var wrap  = e.target.closest('.sc-wrap');
+    var list  = wrap.querySelector('.sc-list');
+    var items = list.querySelectorAll('.sc-item');
+    items.forEach(function(i){ i.style.display = 'block'; });
+    list.style.display = 'block';
+  }
+});
+
+// Cerrar al hacer clic afuera
+document.addEventListener('click', function(e) {
+  if(!e.target.classList.contains('sc-input') && !e.target.classList.contains('sc-item')) {
+    document.querySelectorAll('.sc-list').forEach(function(l){
+      l.style.display = 'none';
+    });
+  }
+});
+
 // ── Calendario personalizado ──────────────────────────────────────────────────
 var CAL_TARGET = null;
 var CAL_YEAR   = new Date().getFullYear();
@@ -535,5 +603,28 @@ document.addEventListener('click', function(e) {
   border-radius:4px; padding:4px 12px; cursor:pointer; font-size:12px;
 }
 .cal-footer button:hover { border-color:#C9A84C; color:#C9A84C; }
+
+/* Autocomplete buscador */
+.sc-wrap  { position:relative; }
+.sc-input {
+  width:100%; background:var(--input-bg); border:1px solid var(--border);
+  color:var(--text); padding:8px 10px; border-radius:4px;
+  font-size:13px; font-family:inherit; outline:none;
+  transition:border-color .2s;
+}
+.sc-input:focus { border-color:var(--gold); }
+.sc-list {
+  position:absolute; top:100%; left:0; right:0; z-index:1000;
+  background:#1E2D42; border:1px solid var(--border);
+  border-top:none; border-radius:0 0 6px 6px;
+  max-height:200px; overflow-y:auto;
+  box-shadow:0 6px 18px rgba(0,0,0,.4);
+}
+.sc-item {
+  padding:8px 12px; font-size:13px; color:var(--text);
+  cursor:pointer; border-bottom:1px solid rgba(46,74,107,.4);
+}
+.sc-item:hover { background:rgba(201,168,76,.2); color:var(--gold); }
+.sc-item:last-child { border-bottom:none; }
 </style>
 {% endblock %}
