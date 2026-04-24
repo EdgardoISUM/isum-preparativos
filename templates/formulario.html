@@ -144,7 +144,7 @@
           <input type="text" class="sc-input" autocomplete="off"
                  placeholder="Escribí para buscar..."
                  value="{{ seminario.get('director1','') }}"
-                 oninput="scFilter(this)">
+                 oninput="scFilter(this)" onclick="scOpen(this)">
           <input type="hidden" name="director1" value="{{ seminario.get('director1','') }}">
           <div class="sc-list" style="display:none;">
             {% for d in master.directores %}
@@ -159,7 +159,7 @@
           <input type="text" class="sc-input" autocomplete="off"
                  placeholder="Escribí para buscar..."
                  value="{{ seminario.get('director2','') }}"
-                 oninput="scFilter(this)">
+                 oninput="scFilter(this)" onclick="scOpen(this)">
           <input type="hidden" name="director2" value="{{ seminario.get('director2','') }}">
           <div class="sc-list" style="display:none;">
             {% for d in master.directores %}
@@ -214,7 +214,7 @@
           <input type="text" class="sc-input" autocomplete="off"
                  placeholder="Escribí para buscar..."
                  value="{{ seminario.get(campo_key,'') }}"
-                 oninput="scFilter(this)">
+                 oninput="scFilter(this)" onclick="scOpen(this)">
           <input type="hidden" name="{{ campo_key }}" value="{{ seminario.get(campo_key,'') }}">
           <div class="sc-list" style="display:none;">
             {% for p in master.profesores %}
@@ -433,14 +433,27 @@ function scSelect(item) {
   wrap.querySelector('.sc-list').style.display = 'none';
 }
 
-// Mostrar todas las opciones al hacer foco
+// Abrir lista — llamado por onclick y onfocus
+function scOpen(input) {
+  var wrap  = input.closest('.sc-wrap');
+  var list  = wrap.querySelector('.sc-list');
+  var items = list.querySelectorAll('.sc-item');
+  // Mostrar todos los items
+  items.forEach(function(i){ i.style.display = 'block'; });
+  // Si hay texto, filtrar
+  var query = input.value.toLowerCase().trim();
+  if(query.length > 0) {
+    items.forEach(function(i){
+      i.style.display = i.dataset.val.toLowerCase().indexOf(query) >= 0 ? 'block' : 'none';
+    });
+  }
+  list.style.display = 'block';
+}
+
+// También abrir al hacer foco con teclado (Tab)
 document.addEventListener('focusin', function(e) {
   if(e.target.classList.contains('sc-input')) {
-    var wrap  = e.target.closest('.sc-wrap');
-    var list  = wrap.querySelector('.sc-list');
-    var items = list.querySelectorAll('.sc-item');
-    items.forEach(function(i){ i.style.display = 'block'; });
-    list.style.display = 'block';
+    scOpen(e.target);
   }
 });
 
