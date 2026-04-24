@@ -374,6 +374,7 @@ def reporte():
     f_pais     = request.args.get("pais","").strip()
     f_sede     = request.args.get("sede","").strip()
     f_director = request.args.get("director","").strip().lower()
+    f_profesor = request.args.get("profesor","").strip().lower()
     f_fecha_desde = request.args.get("fecha_desde","").strip()
     f_fecha_hasta = request.args.get("fecha_hasta","").strip()
     orden      = request.args.get("orden","fecha")  # fecha | pais | sede
@@ -390,6 +391,18 @@ def reporte():
             d1 = s.get("director1","").lower()
             d2 = s.get("director2","").lower()
             if f_director not in d1 and f_director not in d2:
+                return False
+        if f_profesor:
+            # Buscar en todos los campos de profesor (las 3 opciones de las 4 materias)
+            encontrado = False
+            for qi in range(2):
+                for mi in range(2):
+                    for opc in range(3):
+                        val = s.get(f"q{qi}_m{mi}_prof{opc}","").lower()
+                        if f_profesor in val:
+                            encontrado = True
+                            break
+            if not encontrado:
                 return False
         fi = parse_date(s.get("fecha_inicio",""))
         if fd and fi and fi < fd:
@@ -421,8 +434,10 @@ def reporte():
                            paises=list(master["paises"].keys()),
                            sedes_disponibles=sedes_disponibles,
                            directores=master["directores"],
+                           profesores=master["profesores"],
                            f_pais=f_pais, f_sede=f_sede,
                            f_director=f_director,
+                           f_profesor=f_profesor,
                            f_fecha_desde=f_fecha_desde,
                            f_fecha_hasta=f_fecha_hasta,
                            orden=orden,
