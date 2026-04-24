@@ -435,11 +435,16 @@ function scSelect(item) {
 
 // Abrir lista — llamado por onclick y onfocus
 function scOpen(input) {
+  // Cerrar cualquier lista abierta primero
+  document.querySelectorAll('.sc-list').forEach(function(l){ l.style.display = 'none'; });
+
   var wrap  = input.closest('.sc-wrap');
   var list  = wrap.querySelector('.sc-list');
   var items = list.querySelectorAll('.sc-item');
+
   // Mostrar todos los items
   items.forEach(function(i){ i.style.display = 'block'; });
+
   // Si hay texto, filtrar
   var query = input.value.toLowerCase().trim();
   if(query.length > 0) {
@@ -447,6 +452,12 @@ function scOpen(input) {
       i.style.display = i.dataset.val.toLowerCase().indexOf(query) >= 0 ? 'block' : 'none';
     });
   }
+
+  // Posicionar con fixed relativo al input
+  var rect = input.getBoundingClientRect();
+  list.style.top   = (rect.bottom + 2) + 'px';
+  list.style.left  = rect.left + 'px';
+  list.style.width = rect.width + 'px';
   list.style.display = 'block';
 }
 
@@ -627,11 +638,12 @@ document.addEventListener('click', function(e) {
 }
 .sc-input:focus { border-color:var(--gold); }
 .sc-list {
-  position:absolute; top:100%; left:0; right:0; z-index:1000;
-  background:#1E2D42; border:1px solid var(--border);
-  border-top:none; border-radius:0 0 6px 6px;
-  max-height:200px; overflow-y:auto;
-  box-shadow:0 6px 18px rgba(0,0,0,.4);
+  position:fixed; z-index:99999;
+  background:#1E2D42; border:1px solid #C9A84C;
+  border-radius:6px;
+  max-height:240px; overflow-y:auto;
+  box-shadow:0 8px 24px rgba(0,0,0,.7);
+  min-width:220px;
 }
 .sc-item {
   padding:8px 12px; font-size:13px; color:var(--text);
