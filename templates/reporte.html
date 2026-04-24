@@ -118,6 +118,15 @@ tr:hover td { background: rgba(46,74,107,.25); }
       </div>
 
       <div class="filter-group">
+        <label>Profesor (buscar)</label>
+        <input type="text" name="profesor" value="{{ f_profesor }}"
+               placeholder="Nombre..." list="prof-list">
+        <datalist id="prof-list">
+          {% for p in profesores %}<option value="{{ p }}">{% endfor %}
+        </datalist>
+      </div>
+
+      <div class="filter-group">
         <label>Fecha desde</label>
         <input type="text" name="fecha_desde" value="{{ f_fecha_desde }}"
                placeholder="dd-mm-aaaa">
