@@ -242,7 +242,13 @@ def logout():
 @app.route("/")
 @login_required
 def index():
-    return render_template("index.html", seminarios=get_seminarios())
+    seminarios = get_seminarios()
+    orden = request.args.get("orden", "id")
+    if orden == "fecha":
+        seminarios.sort(key=lambda s: parse_date(s.get("fecha_inicio","")) or datetime(9999,1,1))
+    elif orden == "fecha_desc":
+        seminarios.sort(key=lambda s: parse_date(s.get("fecha_inicio","")) or datetime(1900,1,1), reverse=True)
+    return render_template("index.html", seminarios=seminarios, orden=orden)
 
 @app.route("/seminario/nuevo")
 @login_required
