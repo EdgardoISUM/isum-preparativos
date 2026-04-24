@@ -427,10 +427,14 @@ function scFilter(input) {
 
 function scSelect(item) {
   var val  = item.dataset.val;
-  var wrap = item.closest('.sc-wrap');
-  wrap.querySelector('.sc-input').value = val;
-  wrap.querySelector('input[type=hidden]').value = val;
-  wrap.querySelector('.sc-list').style.display = 'none';
+  var list = item.closest('.sc-list');
+  var input = list._scInput;
+  if(input) {
+    var wrap = input.closest('.sc-wrap');
+    input.value = val;
+    wrap.querySelector('input[type=hidden]').value = val;
+  }
+  list.style.display = 'none';
 }
 
 // Abrir lista — llamado por onclick y onfocus
@@ -453,12 +457,18 @@ function scOpen(input) {
     });
   }
 
-  // Posicionar con fixed relativo al input
+  // Mover la lista al body para evitar problemas de overflow/scroll
+  document.body.appendChild(list);
+
   var rect = input.getBoundingClientRect();
-  list.style.top   = (rect.bottom + 2) + 'px';
-  list.style.left  = rect.left + 'px';
-  list.style.width = rect.width + 'px';
-  list.style.display = 'block';
+  list.style.position = 'fixed';
+  list.style.top      = (rect.bottom + 2) + 'px';
+  list.style.left     = rect.left + 'px';
+  list.style.width    = rect.width + 'px';
+  list.style.display  = 'block';
+
+  // Guardar referencia al input activo
+  list._scInput = input;
 }
 
 // También abrir al hacer foco con teclado (Tab)
@@ -476,6 +486,17 @@ document.addEventListener('click', function(e) {
     });
   }
 });
+
+// Reposicionar al hacer scroll
+window.addEventListener('scroll', function() {
+  document.querySelectorAll('.sc-list').forEach(function(list) {
+    if(list.style.display === 'block' && list._scInput) {
+      var rect = list._scInput.getBoundingClientRect();
+      list.style.top  = (rect.bottom + 2) + 'px';
+      list.style.left = rect.left + 'px';
+    }
+  });
+}, true);
 
 // ── Calendario personalizado ──────────────────────────────────────────────────
 var CAL_TARGET = null;
