@@ -1,89 +1,37 @@
 {% extends "base.html" %}
 {% block title %}Reporte{% endblock %}
 {% block content %}
-
 <style>
-.filter-card {
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: 8px; padding: 18px; margin-bottom: 20px;
-}
-.filter-grid {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px; align-items: end;
-}
-.filter-group label {
-  display: block; color: var(--text-dim); font-size: 10px;
-  font-weight: bold; text-transform: uppercase; letter-spacing: .5px;
-  margin-bottom: 4px;
-}
-.filter-group input,
-.filter-group select {
-  width: 100%; background: var(--input-bg); border: 1px solid var(--border);
-  color: var(--text); padding: 8px 10px; border-radius: 4px;
-  font-size: 13px; outline: none;
-}
+.filter-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 18px; margin-bottom: 20px; }
+.filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end; }
+.filter-group label { display: block; color: var(--text-dim); font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+.filter-group input, .filter-group select { width: 100%; background: var(--input-bg); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 4px; font-size: 13px; outline: none; }
 .filter-group input:focus, .filter-group select:focus { border-color: var(--gold); }
 select option { background: var(--card); }
-
-/* Tabla */
 .report-table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; min-width: 900px; }
-th {
-  background: var(--panel); color: var(--gold); font-size: 11px;
-  text-transform: uppercase; padding: 10px 12px; text-align: left;
-  border-bottom: 2px solid var(--border); white-space: nowrap;
-  cursor: pointer; user-select: none;
-}
+th { background: var(--panel); color: var(--gold); font-size: 11px; text-transform: uppercase; padding: 10px 12px; text-align: left; border-bottom: 2px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }
 th:hover { background: rgba(46,74,107,.5); }
-th .sort-arrow { margin-left: 4px; color: var(--text-dim); }
-th.sorted { color: var(--gold-lt); }
-td {
-  padding: 10px 12px; border-bottom: 1px solid var(--border);
-  font-size: 12px; vertical-align: top;
-}
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 12px; vertical-align: top; }
 tr:hover td { background: rgba(46,74,107,.25); }
-.badge {
-  display: inline-block; padding: 2px 7px; border-radius: 10px;
-  font-size: 11px; font-weight: bold; background: var(--border);
-  color: var(--gold);
-}
+.badge { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 11px; font-weight: bold; background: var(--border); color: var(--gold); }
 .prof-list { list-style: none; padding: 0; margin: 0; }
 .prof-list li { color: var(--text); margin-bottom: 2px; }
-.prof-list li:first-child { font-weight: bold; }
 .prof-list li.dim { color: var(--text-dim); }
 .empty-val { color: var(--text-dim); font-style: italic; }
-
-/* Resumen */
-.summary-bar {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 12px; flex-wrap: wrap; gap: 8px;
-}
+.summary-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
 .summary-bar span { color: var(--text-dim); font-size: 13px; }
 .summary-bar strong { color: var(--gold); }
-
-/* Print */
-@media print {
-  header, .filter-card, .detail-actions, .btn { display: none !important; }
-  body { background: white; color: black; }
-  th { background: #eee; color: black; }
-  td { border-color: #ccc; }
-  .badge { background: #ddd; color: black; }
-}
-@media (max-width: 700px) {
-  .filter-grid { grid-template-columns: 1fr 1fr; }
-}
+@media print { header, .filter-card, .detail-actions, .btn { display: none !important; } body { background: white; color: black; } th { background: #eee; color: black; } td { border-color: #ccc; } .badge { background: #ddd; color: black; } }
+@media (max-width: 700px) { .filter-grid { grid-template-columns: 1fr 1fr; } }
 </style>
-
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
   <h2 style="color:var(--gold); font-family:Georgia,serif; font-size:20px;">Reporte de Seminarios</h2>
   <button onclick="window.print()" class="btn btn-secondary">🖨 Imprimir</button>
 </div>
-
-<!-- Filtros -->
 <div class="filter-card">
   <form method="GET" action="{{ url_for('reporte') }}" id="form-filtro">
     <div class="filter-grid">
-
       <div class="filter-group">
         <label>País</label>
         <select name="pais" onchange="this.form.submit()">
@@ -93,7 +41,6 @@ tr:hover td { background: rgba(46,74,107,.25); }
           {% endfor %}
         </select>
       </div>
-
       <div class="filter-group">
         <label>Sede</label>
         <select name="sede" onchange="this.form.submit()">
@@ -107,37 +54,24 @@ tr:hover td { background: rgba(46,74,107,.25); }
           {% endif %}
         </select>
       </div>
-
       <div class="filter-group">
         <label>Director (buscar)</label>
-        <input type="text" name="director" value="{{ f_director }}"
-               placeholder="Nombre..." list="dir-list">
-        <datalist id="dir-list">
-          {% for d in directores %}<option value="{{ d }}">{% endfor %}
-        </datalist>
+        <input type="text" name="director" value="{{ f_director }}" placeholder="Nombre..." list="dir-list">
+        <datalist id="dir-list">{% for d in directores %}<option value="{{ d }}">{% endfor %}</datalist>
       </div>
-
       <div class="filter-group">
         <label>Profesor (buscar)</label>
-        <input type="text" name="profesor" value="{{ f_profesor }}"
-               placeholder="Nombre..." list="prof-list">
-        <datalist id="prof-list">
-          {% for p in profesores %}<option value="{{ p }}">{% endfor %}
-        </datalist>
+        <input type="text" name="profesor" value="{{ f_profesor }}" placeholder="Nombre..." list="prof-list">
+        <datalist id="prof-list">{% for p in profesores %}<option value="{{ p }}">{% endfor %}</datalist>
       </div>
-
       <div class="filter-group">
         <label>Fecha desde</label>
-        <input type="text" name="fecha_desde" value="{{ f_fecha_desde }}"
-               placeholder="dd-mm-aaaa">
+        <input type="text" name="fecha_desde" value="{{ f_fecha_desde }}" placeholder="dd-mm-aaaa">
       </div>
-
       <div class="filter-group">
         <label>Fecha hasta</label>
-        <input type="text" name="fecha_hasta" value="{{ f_fecha_hasta }}"
-               placeholder="dd-mm-aaaa">
+        <input type="text" name="fecha_hasta" value="{{ f_fecha_hasta }}" placeholder="dd-mm-aaaa">
       </div>
-
       <div class="filter-group">
         <label>Ordenar por</label>
         <select name="orden" onchange="this.form.submit()">
@@ -146,35 +80,19 @@ tr:hover td { background: rgba(46,74,107,.25); }
           <option value="sede"  {% if orden=='sede'  %}selected{% endif %}>Sede</option>
         </select>
       </div>
-
       <div class="filter-group" style="display:flex; gap:8px;">
         <button type="submit" class="btn btn-primary" style="flex:1;">🔍 Buscar</button>
         <a href="{{ url_for('reporte') }}" class="btn btn-secondary">✕</a>
       </div>
-
     </div>
   </form>
 </div>
-
-<!-- Resumen -->
 <div class="summary-bar">
-  <span>
-    Mostrando <strong>{{ resultados|length }}</strong>
-    de <strong>{{ total }}</strong> seminarios
-    {% if f_pais or f_sede or f_director or f_fecha_desde or f_fecha_hasta %}
-      con filtros activos
-    {% endif %}
-  </span>
+  <span>Mostrando <strong>{{ resultados|length }}</strong> de <strong>{{ total }}</strong> seminarios{% if f_pais or f_sede or f_director or f_fecha_desde or f_fecha_hasta %} con filtros activos{% endif %}</span>
   {% if resultados %}
-  <span style="color:var(--text-dim); font-size:12px;">
-    Ordenado por: <strong style="color:var(--text);">
-      {{ {'fecha':'Fecha de inicio','pais':'País','sede':'Sede'}[orden] }}
-    </strong>
-  </span>
+  <span style="color:var(--text-dim); font-size:12px;">Ordenado por: <strong style="color:var(--text);">{{ {'fecha':'Fecha de inicio','pais':'País','sede':'Sede'}[orden] }}</strong></span>
   {% endif %}
 </div>
-
-<!-- Tabla -->
 {% if resultados %}
 <div class="report-table-wrap">
   <table>
@@ -182,6 +100,7 @@ tr:hover td { background: rgba(46,74,107,.25); }
       <tr>
         <th>País</th>
         <th>Sede</th>
+        <th>Persona de Enlace</th>
         <th>Sem.</th>
         <th>Año</th>
         <th>Fecha Inicio</th>
@@ -194,96 +113,56 @@ tr:hover td { background: rgba(46,74,107,.25); }
     <tbody>
     {% for s in resultados %}
     {% set q0_label = s.get('quincena_bloque0','PRIMERA') %}
-    {% set q1_label = s.get('quincena_bloque1','SEGUNDA') %}
-
-    {# Determinar qué bloque es primera y segunda quincena #}
-    {% if q0_label == 'PRIMERA' %}
-      {% set qi_pri = 0 %}{% set qi_seg = 1 %}
-    {% else %}
-      {% set qi_pri = 1 %}{% set qi_seg = 0 %}
-    {% endif %}
-
+    {% if q0_label == 'PRIMERA' %}{% set qi_pri = 0 %}{% set qi_seg = 1 %}{% else %}{% set qi_pri = 1 %}{% set qi_seg = 0 %}{% endif %}
     <tr>
       <td>{{ s.get('pais','—') }}</td>
       <td>{{ s.get('sede','—') }}</td>
+      <td style="font-size:11px; color:var(--text-dim);">{{ s.get('persona_enlace','—') }}</td>
       <td><span class="badge">{{ s.get('num_sem','—') }}</span></td>
       <td>{{ s.get('anio','—') }}</td>
       <td style="white-space:nowrap;">{{ s.get('fecha_inicio','—') }}</td>
       <td style="white-space:nowrap;">{{ s.get('fecha_clausura','—') }}</td>
-
-      <!-- 1ª Quincena -->
       <td>
         {% set dir1 = s.get('director1','') if qi_pri==0 else s.get('director2','') %}
-        {% if dir1 %}
-          <div style="color:var(--gold-lt); font-size:11px; margin-bottom:4px;">{{ dir1 }}</div>
-        {% endif %}
+        {% if dir1 %}<div style="color:var(--gold-lt); font-size:11px; margin-bottom:4px;">{{ dir1 }}</div>{% endif %}
         <ul class="prof-list">
           {% for mi in range(2) %}
             {% set mat_idx = qi_pri*2 + mi %}
             {% set mat_nombre = materias.get(s.get('num_sem',''),['','','',''])[mat_idx] %}
             {% set prof = s.get('q'~qi_pri~'_m'~mi~'_prof0','') %}
             {% if mat_nombre or prof %}
-            <li>
-              {% if mat_nombre %}
-                <span style="color:var(--text-dim); font-size:10px;">{{ mat_nombre }}: </span>
-              {% endif %}
-              {% if prof %}
-                <span>{{ prof }}</span>
-              {% else %}
-                <span class="dim">—</span>
-              {% endif %}
-            </li>
+            <li>{% if mat_nombre %}<span style="color:var(--text-dim); font-size:10px;">{{ mat_nombre }}: </span>{% endif %}{% if prof %}<span>{{ prof }}</span>{% else %}<span class="dim">—</span>{% endif %}</li>
             {% endif %}
           {% endfor %}
         </ul>
       </td>
-
-      <!-- 2ª Quincena -->
       <td>
         {% set dir2 = s.get('director2','') if qi_seg==1 else s.get('director1','') %}
-        {% if dir2 %}
-          <div style="color:var(--gold-lt); font-size:11px; margin-bottom:4px;">{{ dir2 }}</div>
-        {% endif %}
+        {% if dir2 %}<div style="color:var(--gold-lt); font-size:11px; margin-bottom:4px;">{{ dir2 }}</div>{% endif %}
         <ul class="prof-list">
           {% for mi in range(2) %}
             {% set mat_idx = qi_seg*2 + mi %}
             {% set mat_nombre = materias.get(s.get('num_sem',''),['','','',''])[mat_idx] %}
             {% set prof = s.get('q'~qi_seg~'_m'~mi~'_prof0','') %}
             {% if mat_nombre or prof %}
-            <li>
-              {% if mat_nombre %}
-                <span style="color:var(--text-dim); font-size:10px;">{{ mat_nombre }}: </span>
-              {% endif %}
-              {% if prof %}
-                <span>{{ prof }}</span>
-              {% else %}
-                <span class="dim">—</span>
-              {% endif %}
-            </li>
+            <li>{% if mat_nombre %}<span style="color:var(--text-dim); font-size:10px;">{{ mat_nombre }}: </span>{% endif %}{% if prof %}<span>{{ prof }}</span>{% else %}<span class="dim">—</span>{% endif %}</li>
             {% endif %}
           {% endfor %}
         </ul>
       </td>
-
       <td style="white-space:nowrap;">
-        <a href="{{ url_for('preview') }}?id={{ s._db_id }}"
-           class="btn btn-secondary btn-sm">👁</a>
-        <a href="{{ url_for('editar_seminario', db_id=s._db_id) }}"
-           class="btn btn-secondary btn-sm">✏</a>
+        <a href="{{ url_for('preview') }}?id={{ s._db_id }}" class="btn btn-secondary btn-sm">👁</a>
+        <a href="{{ url_for('editar_seminario', db_id=s._db_id) }}" class="btn btn-secondary btn-sm">✏</a>
       </td>
     </tr>
     {% endfor %}
     </tbody>
   </table>
 </div>
-
 {% else %}
 <div style="text-align:center; padding:48px; color:var(--text-dim);">
   <p style="font-size:15px;">No se encontraron seminarios con esos filtros.</p>
-  <a href="{{ url_for('reporte') }}" class="btn btn-secondary" style="margin-top:12px;">
-    Limpiar filtros
-  </a>
+  <a href="{{ url_for('reporte') }}" class="btn btn-secondary" style="margin-top:12px;">Limpiar filtros</a>
 </div>
 {% endif %}
-
 {% endblock %}
