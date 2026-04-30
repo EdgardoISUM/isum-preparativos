@@ -87,6 +87,54 @@
             <button class="btn btn-primary btn-sm">+ Agregar</button>
           </form>
 
+
+          <!-- Personas de enlace -->
+          <details style="margin-top:10px; border-top:1px solid var(--border); padding-top:10px;">
+            <summary style="color:var(--gold); font-size:12px; cursor:pointer; font-weight:bold;">👤 Personas de Enlace</summary>
+            <div style="margin-top:8px;">
+              <div class="list-items" style="max-height:160px; overflow-y:auto;">
+                {% if master.enlaces is defined and p in master.enlaces %}
+                  {% for e in master.enlaces[p] %}
+                  <div class="list-item">
+                    <span>{{ e }}</span>
+                    <form method="POST" action="{{ url_for('admin_guardar') }}" style="display:inline">
+                      <input type="hidden" name="seccion" value="paises">
+                      <input type="hidden" name="accion"  value="eliminar_enlace">
+                      <input type="hidden" name="pais"    value="{{ p }}">
+                      <input type="hidden" name="valor"   value="{{ e }}">
+                      <button class="btn btn-danger btn-sm">−</button>
+                    </form>
+                  </div>
+                  {% endfor %}
+                {% endif %}
+              </div>
+              <form method="POST" action="{{ url_for('admin_guardar') }}" style="display:flex; gap:8px; margin-top:6px;">
+                <input type="hidden" name="seccion" value="paises">
+                <input type="hidden" name="accion"  value="agregar_enlace">
+                <input type="hidden" name="pais"    value="{{ p }}">
+                <input type="text"   name="valor" placeholder="Nueva persona de enlace" style="flex:1;">
+                <button class="btn btn-primary btn-sm">+ Agregar</button>
+              </form>
+              <div style="display:flex; gap:6px; margin-top:6px;">
+                <form method="POST" action="{{ url_for('admin_guardar') }}">
+                  <input type="hidden" name="seccion" value="paises">
+                  <input type="hidden" name="accion"  value="ordenar_enlaces">
+                  <input type="hidden" name="pais"    value="{{ p }}">
+                  <button class="btn btn-secondary btn-sm">↑↓ Ordenar A-Z</button>
+                </form>
+              </div>
+              <details style="margin-top:8px;">
+                <summary style="color:var(--text-dim); font-size:11px; cursor:pointer;">📋 Importar en lote</summary>
+                <form method="POST" action="{{ url_for('admin_guardar') }}" style="margin-top:6px;">
+                  <input type="hidden" name="seccion" value="paises">
+                  <input type="hidden" name="accion"  value="importar_enlaces">
+                  <input type="hidden" name="pais"    value="{{ p }}">
+                  <textarea name="valor" rows="4" placeholder="Una persona por línea"></textarea>
+                  <button class="btn btn-primary btn-sm" style="margin-top:6px;">Importar y Grabar</button>
+                </form>
+              </details>
+            </div>
+          </details>
           <details style="margin-top:10px;">
             <summary style="color:var(--gold); font-size:12px; cursor:pointer;">📋 Importar sedes en lote</summary>
             <form method="POST" action="{{ url_for('admin_guardar') }}" style="margin-top:8px;">
@@ -130,7 +178,6 @@
         {% endfor %}
       </div>
 
-      <!-- Acciones en lote -->
       <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
         <button type="submit" class="btn btn-danger btn-sm"
                 onclick="document.getElementById('accion-{{ key }}').value='eliminar_seleccionados'">
@@ -149,7 +196,6 @@
       </div>
     </form>
 
-    <!-- Agregar uno -->
     <form method="POST" action="{{ url_for('admin_guardar') }}" style="display:flex; gap:8px; margin-top:12px;">
       <input type="hidden" name="seccion" value="{{ key }}">
       <input type="hidden" name="accion"  value="agregar">
@@ -157,7 +203,6 @@
       <button class="btn btn-primary btn-sm">+ Agregar</button>
     </form>
 
-    <!-- Importar en lote -->
     <details style="margin-top:10px;">
       <summary style="color:var(--gold); font-size:12px; cursor:pointer;">📋 Importar en lote</summary>
       <form method="POST" action="{{ url_for('admin_guardar') }}" style="margin-top:10px;">

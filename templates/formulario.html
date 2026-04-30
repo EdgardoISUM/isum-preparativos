@@ -6,24 +6,18 @@
 <div style="margin-bottom:14px;">
   {% for c in coincidencias %}
     {% if c.tipo == 'simultaneo' %}
-    <div style="background:rgba(201,168,76,.15); border:2px solid #C9A84C;
-                border-radius:6px; padding:12px 18px; margin-bottom:8px;
-                display:flex; align-items:center; gap:10px;">
+    <div style="background:rgba(201,168,76,.15); border:2px solid #C9A84C; border-radius:6px; padding:12px 18px; margin-bottom:8px; display:flex; align-items:center; gap:10px;">
       <span style="font-size:20px;">⚡</span>
       <div>
-        <span style="color:#C9A84C; font-weight:bold; font-size:13px; text-transform:uppercase;
-                     letter-spacing:1px;">SIMULTÁNEO CON</span>
+        <span style="color:#C9A84C; font-weight:bold; font-size:13px; text-transform:uppercase; letter-spacing:1px;">SIMULTÁNEO CON</span>
         <div style="color:#E8EDF4; font-size:13px; margin-top:2px;">{{ c.nombre }}</div>
       </div>
     </div>
     {% elif c.tipo == 'solapado' %}
-    <div style="background:rgba(207,68,68,.12); border:2px solid #CF4444;
-                border-radius:6px; padding:12px 18px; margin-bottom:8px;
-                display:flex; align-items:center; gap:10px;">
+    <div style="background:rgba(207,68,68,.12); border:2px solid #CF4444; border-radius:6px; padding:12px 18px; margin-bottom:8px; display:flex; align-items:center; gap:10px;">
       <span style="font-size:20px;">⚠️</span>
       <div>
-        <span style="color:#CF4444; font-weight:bold; font-size:13px; text-transform:uppercase;
-                     letter-spacing:1px;">SOLAPADO CON</span>
+        <span style="color:#CF4444; font-weight:bold; font-size:13px; text-transform:uppercase; letter-spacing:1px;">SOLAPADO CON</span>
         <div style="color:#E8EDF4; font-size:13px; margin-top:2px;">{{ c.nombre }}</div>
       </div>
     </div>
@@ -67,6 +61,18 @@
           {% if pais_actual and pais_actual in master.paises %}
             {% for s in master.paises[pais_actual] %}
               <option value="{{ s }}" {% if seminario.get('sede')==s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          {% endif %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Persona de Enlace</label>
+        <select name="persona_enlace" id="sel-enlace">
+          <option value="">— Seleccionar —</option>
+          {% set pais_actual = seminario.get('pais','') %}
+          {% if pais_actual and master.enlaces is defined and pais_actual in master.enlaces %}
+            {% for e in master.enlaces[pais_actual] %}
+              <option value="{{ e }}" {% if seminario.get('persona_enlace')==e %}selected{% endif %}>{{ e }}</option>
             {% endfor %}
           {% endif %}
         </select>
@@ -224,12 +230,8 @@
         </div>
         {% if opc == 0 and conflictos_profesor.get(campo_key) %}
           {% for conf in conflictos_profesor[campo_key] %}
-          <div style="background:rgba(207,68,68,.15); border:1px solid #CF4444;
-                      border-radius:5px; padding:8px 10px; margin-top:6px;
-                      font-size:11px; grid-column:1/-1;">
-            <div style="color:#CF4444; font-weight:bold; letter-spacing:.5px;">
-              🚨 POSIBLE CONFLICTO DE AGENDA
-            </div>
+          <div style="background:rgba(207,68,68,.15); border:1px solid #CF4444; border-radius:5px; padding:8px 10px; margin-top:6px; font-size:11px; grid-column:1/-1;">
+            <div style="color:#CF4444; font-weight:bold; letter-spacing:.5px;">🚨 POSIBLE CONFLICTO DE AGENDA</div>
             <div style="color:#E8EDF4; margin-top:3px;">
               <strong>{{ conf.profesor }}</strong> — {{ conf.seminario }}
               {% if conf.diff_dias == 0 %}(mismas fechas){% else %}({{ conf.diff_dias }} días de diferencia){% endif %}
@@ -304,6 +306,7 @@
 <script>
 const MATERIAS = {{ materias|tojson }};
 const SEDES    = {{ master.paises|tojson }};
+const ENLACES  = {{ master.enlaces|default({})|tojson }};
 
 // ── Cargar sedes al cambiar país ──────────────────────────────────────────────
 function cargarSedes() {
@@ -314,6 +317,14 @@ function cargarSedes() {
   sedes.forEach(s => {
     const o = document.createElement('option'); o.value = s; o.textContent = s;
     selS.appendChild(o);
+  });
+  // Cargar personas de enlace del país
+  const selE = document.getElementById('sel-enlace');
+  const enlaces = ENLACES[pais] || [];
+  selE.innerHTML = '<option value="">— Seleccionar —</option>';
+  enlaces.forEach(e => {
+    const o = document.createElement('option'); o.value = e; o.textContent = e;
+    selE.appendChild(o);
   });
   actualizarTitulo();
 }
@@ -409,12 +420,10 @@ actualizarTitulo();
 
 // ── Buscador con autocomplete ─────────────────────────────────────────────────
 // ── Autocomplete global ───────────────────────────────────────────────────────
-// Un solo dropdown global que se rellena según el input activo
 var SC_ACTIVE_INPUT  = null;
 var SC_ACTIVE_HIDDEN = null;
-var SC_OPTIONS       = {};   // nombre_campo -> [opciones]
+var SC_OPTIONS       = {};
 
-// Registrar opciones por campo al cargar
 function scRegister(inputEl, hiddenEl, opciones) {
   var id = inputEl.name || Math.random().toString(36).slice(2);
   inputEl.dataset.scId = id;
@@ -430,7 +439,6 @@ function scOpen(input) {
   var dd      = document.getElementById('sc-global-dd');
   var ul      = document.getElementById('sc-global-ul');
 
-  // Filtrar y construir items
   var html = '';
   var count = 0;
   opts.forEach(function(opt) {
@@ -444,7 +452,6 @@ function scOpen(input) {
 
   ul.innerHTML = html;
 
-  // Posicionar debajo del input
   var rect = input.getBoundingClientRect();
   dd.style.top   = (rect.bottom + window.scrollY + 2) + 'px';
   dd.style.left  = (rect.left + window.scrollX) + 'px';
@@ -455,26 +462,23 @@ function scOpen(input) {
 function scFilter(input) {
   if(input !== SC_ACTIVE_INPUT) { SC_ACTIVE_INPUT = input; }
   scOpen(input);
-  // Limpiar hidden si campo vacío
   if(!input.value.trim()) {
     var h = input.closest('.sc-wrap').querySelector('input[type=hidden]');
     if(h) h.value = '';
   }
 }
 
-// Click en un item del dropdown global
 document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('sc-global-ul').addEventListener('mousedown', function(e) {
     var item = e.target.closest('.sc-item');
     if(!item) return;
-    e.preventDefault(); // evitar que el blur del input cierre antes
+    e.preventDefault();
     var val = item.dataset.val;
     if(SC_ACTIVE_INPUT)  SC_ACTIVE_INPUT.value  = val;
     if(SC_ACTIVE_HIDDEN) SC_ACTIVE_HIDDEN.value = val;
     document.getElementById('sc-global-dd').style.display = 'none';
   });
 
-  // Cerrar al hacer clic afuera o al perder foco
   document.addEventListener('click', function(e) {
     var dd = document.getElementById('sc-global-dd');
     if(!dd) return;
@@ -483,12 +487,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  // Registrar todos los campos con las listas JS (no desde HTML)
   document.querySelectorAll('.sc-wrap').forEach(function(wrap) {
     var textInput = wrap.querySelector('.sc-input');
     var id = 'sc_' + Math.random().toString(36).slice(2);
     textInput.dataset.scId = id;
-    // Determinar si es director o profesor por el name del hidden
     var hidden = wrap.querySelector('input[type=hidden]');
     var fname  = hidden ? hidden.name : '';
     if(fname.indexOf('director') >= 0) {
@@ -503,8 +505,7 @@ document.addEventListener('DOMContentLoaded', function() {
 var CAL_TARGET = null;
 var CAL_YEAR   = new Date().getFullYear();
 var CAL_MONTH  = new Date().getMonth();
-var CAL_MESES  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
-                  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+var CAL_MESES  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 var CAL_DIAS   = ['Lu','Ma','Mi','Ju','Vi','Sa','Do'];
 
 function openCal(inputId) {
@@ -531,41 +532,27 @@ function closeCal() {
 }
 
 function drawCal() {
-  var cal      = document.getElementById('isum-cal');
   var input    = document.getElementById(CAL_TARGET);
   var sel      = parseDate(input ? input.value : '');
   var hoy      = new Date();
-
-  // Cabecera
   document.getElementById('cal-mes-label').textContent = CAL_MESES[CAL_MONTH] + ' ' + CAL_YEAR;
-
-  // Grilla de días
   var grid = document.getElementById('cal-grid-body');
   var html = '';
   CAL_DIAS.forEach(function(d){ html += '<div class="cal-dow">'+d+'</div>'; });
-
   var firstDay = new Date(CAL_YEAR, CAL_MONTH, 1).getDay();
   firstDay = (firstDay === 0) ? 6 : firstDay - 1;
   for(var i = 0; i < firstDay; i++) html += '<div></div>';
-
   var totalDias = new Date(CAL_YEAR, CAL_MONTH + 1, 0).getDate();
   for(var d = 1; d <= totalDias; d++){
     var cls = 'cal-day';
-    if(d === hoy.getDate() && CAL_MONTH === hoy.getMonth() && CAL_YEAR === hoy.getFullYear())
-      cls += ' cal-today';
-    if(sel && d === sel.getDate() && CAL_MONTH === sel.getMonth() && CAL_YEAR === sel.getFullYear())
-      cls += ' cal-sel';
+    if(d===hoy.getDate() && CAL_MONTH===hoy.getMonth() && CAL_YEAR===hoy.getFullYear()) cls += ' cal-today';
+    if(sel && d===sel.getDate() && CAL_MONTH===sel.getMonth() && CAL_YEAR===sel.getFullYear()) cls += ' cal-sel';
     html += '<div class="'+cls+'" data-day="'+d+'">'+d+'</div>';
   }
   grid.innerHTML = html;
-
-  // Eventos en los días via delegación (no inline onclick)
   grid.onclick = function(e) {
     var target = e.target;
-    if(target.dataset.day) {
-      e.stopPropagation();
-      pickDay(parseInt(target.dataset.day));
-    }
+    if(target.dataset.day) { e.stopPropagation(); pickDay(parseInt(target.dataset.day)); }
   };
 }
 
@@ -579,28 +566,20 @@ function pickDay(day) {
   else if(CAL_TARGET === 'f-2q') calcClausura();
 }
 
-// Cerrar al hacer clic afuera
 document.addEventListener('click', function(e) {
   var cal = document.getElementById('isum-cal');
   if(!cal || cal.style.display !== 'block') return;
-  if(!cal.contains(e.target)
-     && !e.target.classList.contains('cal-btn')
-     && e.target.id !== 'f-inicio'
-     && e.target.id !== 'f-2q') {
+  if(!cal.contains(e.target) && !e.target.classList.contains('cal-btn') && e.target.id !== 'f-inicio' && e.target.id !== 'f-2q') {
     closeCal();
   }
 });
 </script>
 
-<div id="isum-cal" style="display:none; position:absolute; z-index:9999;
-     background:#1E2D42; border:1px solid #2E4A6B; border-radius:8px;
-     box-shadow:0 8px 32px rgba(0,0,0,.6); width:272px;">
+<div id="isum-cal" style="display:none; position:absolute; z-index:9999; background:#1E2D42; border:1px solid #2E4A6B; border-radius:8px; box-shadow:0 8px 32px rgba(0,0,0,.6); width:272px;">
   <div class="cal-header">
-    <button type="button" id="cal-prev"
-            onclick="event.stopPropagation(); CAL_MONTH--; if(CAL_MONTH<0){CAL_MONTH=11;CAL_YEAR--;} drawCal();">&#8249;</button>
+    <button type="button" id="cal-prev" onclick="event.stopPropagation(); CAL_MONTH--; if(CAL_MONTH<0){CAL_MONTH=11;CAL_YEAR--;} drawCal();">&#8249;</button>
     <strong id="cal-mes-label"></strong>
-    <button type="button" id="cal-next"
-            onclick="event.stopPropagation(); CAL_MONTH++; if(CAL_MONTH>11){CAL_MONTH=0;CAL_YEAR++;} drawCal();">&#8250;</button>
+    <button type="button" id="cal-next" onclick="event.stopPropagation(); CAL_MONTH++; if(CAL_MONTH>11){CAL_MONTH=0;CAL_YEAR++;} drawCal();">&#8250;</button>
   </div>
   <div id="cal-grid-body" class="cal-grid"></div>
   <div class="cal-footer">
@@ -611,69 +590,28 @@ document.addEventListener('click', function(e) {
 <style>
 .date-input-wrap { display:flex; }
 .date-input-wrap input { border-radius:4px 0 0 4px; flex:1; }
-.cal-btn {
-  background:#2E4A6B; border:1px solid #2E4A6B; border-left:none;
-  color:#C9A84C; padding:0 11px; border-radius:0 4px 4px 0;
-  cursor:pointer; font-size:16px;
-}
+.cal-btn { background:#2E4A6B; border:1px solid #2E4A6B; border-left:none; color:#C9A84C; padding:0 11px; border-radius:0 4px 4px 0; cursor:pointer; font-size:16px; }
 .cal-btn:hover { background:#4A90C9; }
-.cal-header {
-  display:flex; justify-content:space-between; align-items:center;
-  padding:10px 14px; background:#162032; border-bottom:1px solid #2E4A6B;
-  border-radius:8px 8px 0 0;
-}
-.cal-header button {
-  background:none; border:none; color:#C9A84C; font-size:22px;
-  cursor:pointer; padding:0 4px; line-height:1;
-}
+.cal-header { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:#162032; border-bottom:1px solid #2E4A6B; border-radius:8px 8px 0 0; }
+.cal-header button { background:none; border:none; color:#C9A84C; font-size:22px; cursor:pointer; padding:0 4px; line-height:1; }
 .cal-header strong { color:#E8EDF4; font-size:13px; }
-.cal-grid {
-  display:grid; grid-template-columns:repeat(7,1fr);
-  gap:2px; padding:10px 8px;
-  background:#1E2D42;
-}
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; padding:10px 8px; background:#1E2D42; }
 .cal-dow { text-align:center; font-size:10px; color:#8FA4BE; font-weight:bold; padding:4px 0; }
-.cal-day {
-  text-align:center; padding:7px 2px; border-radius:4px;
-  font-size:12px; color:#E8EDF4; cursor:pointer;
-}
-.cal-day:hover  { background:#2E4A6B; color:#E8C97A; }
-.cal-today      { background:rgba(201,168,76,.25); color:#C9A84C; font-weight:bold; }
-.cal-sel        { background:#C9A84C !important; color:#0D1B2A !important; font-weight:bold; border-radius:50%; }
-.cal-footer {
-  padding:8px 14px; border-top:1px solid #2E4A6B; text-align:right;
-  background:#162032; border-radius:0 0 8px 8px;
-}
-.cal-footer button {
-  background:none; border:1px solid #2E4A6B; color:#8FA4BE;
-  border-radius:4px; padding:4px 12px; cursor:pointer; font-size:12px;
-}
+.cal-day { text-align:center; padding:7px 2px; border-radius:4px; font-size:12px; color:#E8EDF4; cursor:pointer; }
+.cal-day:hover { background:#2E4A6B; color:#E8C97A; }
+.cal-today { background:rgba(201,168,76,.25); color:#C9A84C; font-weight:bold; }
+.cal-sel { background:#C9A84C !important; color:#0D1B2A !important; font-weight:bold; border-radius:50%; }
+.cal-footer { padding:8px 14px; border-top:1px solid #2E4A6B; text-align:right; background:#162032; border-radius:0 0 8px 8px; }
+.cal-footer button { background:none; border:1px solid #2E4A6B; color:#8FA4BE; border-radius:4px; padding:4px 12px; cursor:pointer; font-size:12px; }
 .cal-footer button:hover { border-color:#C9A84C; color:#C9A84C; }
-
-/* Autocomplete buscador */
-.sc-wrap  { position:relative; }
-.sc-input {
-  width:100%; background:var(--input-bg); border:1px solid var(--border);
-  color:var(--text); padding:8px 10px; border-radius:4px;
-  font-size:13px; font-family:inherit; outline:none;
-  transition:border-color .2s;
-}
+.sc-wrap { position:relative; }
+.sc-input { width:100%; background:var(--input-bg); border:1px solid var(--border); color:var(--text); padding:8px 10px; border-radius:4px; font-size:13px; font-family:inherit; outline:none; transition:border-color .2s; }
 .sc-input:focus { border-color:var(--gold); }
-/* Dropdown global único */
-#sc-global-dd {
-  display:none; position:absolute; z-index:99999;
-  background:#1E2D42; border:1px solid #C9A84C;
-  border-radius:6px; max-height:240px; overflow-y:auto;
-  box-shadow:0 8px 24px rgba(0,0,0,.8);
-}
-.sc-item {
-  padding:9px 13px; font-size:13px; color:var(--text);
-  cursor:pointer; border-bottom:1px solid rgba(46,74,107,.4);
-}
+#sc-global-dd { display:none; position:absolute; z-index:99999; background:#1E2D42; border:1px solid #C9A84C; border-radius:6px; max-height:240px; overflow-y:auto; box-shadow:0 8px 24px rgba(0,0,0,.8); }
+.sc-item { padding:9px 13px; font-size:13px; color:var(--text); cursor:pointer; border-bottom:1px solid rgba(46,74,107,.4); }
 .sc-item:hover { background:rgba(201,168,76,.25); color:var(--gold-lt); }
 .sc-item:last-child { border-bottom:none; }
 </style>
-<!-- Dropdown global para autocomplete -->
 <div id="sc-global-dd" style="display:none; position:absolute; z-index:99999;">
   <div id="sc-global-ul"></div>
 </div>
