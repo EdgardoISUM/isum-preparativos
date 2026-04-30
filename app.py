@@ -20,6 +20,7 @@ DEFAULT_MASTER = {
     "paises":     {"Argentina":["Buenos Aires","Cordoba","Rosario"],
                    "Mexico":["Ciudad de Mexico","Guadalajara","Monterrey"],
                    "Colombia":["Bogota","Medellin","Cali"]},
+    "enlaces":    {"Argentina":[],"Mexico":[],"Colombia":[]},
     "directores": [],
     "profesores": [],
     "honorarios": ["$500","$750","$1000","$1250","$1500","$2000"],
@@ -71,7 +72,11 @@ for i in range(5):
 def get_master():
     try:
         rows = db_run("SELECT datos FROM master ORDER BY id LIMIT 1")
-        return json.loads(rows[0][0]) if rows else DEFAULT_MASTER
+        m = json.loads(rows[0][0]) if rows else DEFAULT_MASTER
+        # Asegurar que 'enlaces' existe aunque sea un master viejo
+        if "enlaces" not in m:
+            m["enlaces"] = {p: [] for p in m.get("paises", {}).keys()}
+        return m
     except: return DEFAULT_MASTER
 
 def save_master(data):
@@ -105,119 +110,69 @@ def delete_seminario(db_id):
     db_run("DELETE FROM seminarios WHERE id=:i", i=db_id)
 
 def parse_date(s):
-    if not s:
-        return None
+    if not s: return None
     s = s.strip()
-    # Normalizar: si el año tiene 2 digitos, expandir a 4
-    # Soporta: d-m-yy, d-m-yyyy, d/m/yy, d/m/yyyy
-    for fmt in ("%d-%m-%Y", "%d/%m/%Y", "%d-%m-%y", "%d/%m/%y",
-                "%-d-%-m-%Y", "%-d-%-m-%y"):
+    for fmt in ("%d-%m-%Y","%d/%m/%Y","%d-%m-%y","%d/%m/%y","%-d-%-m-%Y","%-d-%-m-%y"):
         try:
             d = datetime.strptime(s, fmt)
-            # Si el año parseado es < 100, agregar 2000
-            if d.year < 100:
-                d = d.replace(year=d.year + 2000)
+            if d.year < 100: d = d.replace(year=d.year+2000)
             return d
-        except:
-            pass
-    # Intento manual: separar por - o /
+        except: pass
     try:
         sep = "-" if "-" in s else "/"
         parts = s.split(sep)
-        if len(parts) == 3:
-            day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
-            if year < 100:
-                year += 2000
-            return datetime(year, month, day)
-    except:
-        pass
+        if len(parts)==3:
+            day,month,year = int(parts[0]),int(parts[1]),int(parts[2])
+            if year < 100: year += 2000
+            return datetime(year,month,day)
+    except: pass
     return None
 
 def fmt_date(d): return d.strftime("%d-%m-%Y")
 
 def detectar_conflictos_profesor(seminario_actual, todos):
-    """
-    Para cada profesor 1a opcion de cada materia del seminario actual,
-    busca si ese profesor aparece como 1a opcion en otro seminario
-    cuya fecha de inicio este dentro de +/- 15 dias.
-    Retorna dict: {campo: [(nombre_profesor, nombre_seminario), ...]}
-    """
     fi_a = parse_date(seminario_actual.get("fecha_inicio",""))
     id_a = seminario_actual.get("_db_id")
-    if not fi_a:
-        return {}
-
-    # Campos de profesor 1a opcion: q0_m0_prof0, q0_m1_prof0, q1_m0_prof0, q1_m1_prof0
+    if not fi_a: return {}
     campos_prof = [
-        ("q0_m0_prof0", "Materia 1"),
-        ("q0_m1_prof0", "Materia 2"),
-        ("q1_m0_prof0", "Materia 3"),
-        ("q1_m1_prof0", "Materia 4"),
+        ("q0_m0_prof0","Materia 1"),("q0_m1_prof0","Materia 2"),
+        ("q1_m0_prof0","Materia 3"),("q1_m1_prof0","Materia 4"),
     ]
-
     conflictos = {}
     for campo, label in campos_prof:
         prof = seminario_actual.get(campo,"").strip()
-        if not prof:
-            continue
+        if not prof: continue
         for s in todos:
-            if s.get("_db_id") == id_a:
-                continue
+            if s.get("_db_id") == id_a: continue
             fi_b = parse_date(s.get("fecha_inicio",""))
-            if not fi_b:
-                continue
-            diff = abs((fi_a - fi_b).days)
+            if not fi_b: continue
+            diff = abs((fi_a-fi_b).days)
             if diff <= 15:
-                # Verifica si ese profesor es 1a opcion en ese otro seminario
-                for c2, _ in campos_prof:
+                for c2,_ in campos_prof:
                     if s.get(c2,"").strip() == prof:
-                        nombre_sem = (f"{s.get('pais','?')} – {s.get('sede','?')} – "
-                                      f"Sem. {s.get('num_sem','?')} ({s.get('anio','')})")
-                        if campo not in conflictos:
-                            conflictos[campo] = []
-                        conflictos[campo].append({
-                            "profesor": prof,
-                            "seminario": nombre_sem,
-                            "label": label,
-                            "diff_dias": diff,
-                        })
+                        nombre_sem = f"{s.get('pais','?')} – {s.get('sede','?')} – Sem. {s.get('num_sem','?')} ({s.get('anio','')})"
+                        if campo not in conflictos: conflictos[campo] = []
+                        conflictos[campo].append({"profesor":prof,"seminario":nombre_sem,"label":label,"diff_dias":diff})
                         break
     return conflictos
 
-
 def detectar_coincidencias(seminario_actual, todos):
-    """
-    Compara el seminario actual contra todos los demás.
-    Retorna lista de dicts con tipo ('simultaneo' o 'solapado') y descripción.
-    """
-    fi_a  = parse_date(seminario_actual.get("fecha_inicio",""))
-    fc_a  = parse_date(seminario_actual.get("fecha_clausura",""))
-    id_a  = seminario_actual.get("_db_id")
-
-    if not fi_a or not fc_a:
-        return []
-
+    fi_a = parse_date(seminario_actual.get("fecha_inicio",""))
+    fc_a = parse_date(seminario_actual.get("fecha_clausura",""))
+    id_a = seminario_actual.get("_db_id")
+    if not fi_a or not fc_a: return []
     coincidencias = []
     for s in todos:
-        if s.get("_db_id") == id_a:
-            continue
+        if s.get("_db_id") == id_a: continue
         fi_b = parse_date(s.get("fecha_inicio",""))
         fc_b = parse_date(s.get("fecha_clausura",""))
-        if not fi_b or not fc_b:
-            continue
-
+        if not fi_b or not fc_b: continue
         nombre_b = f"{s.get('pais','?')} – {s.get('sede','?')} – Sem. {s.get('num_sem','?')} ({s.get('anio','')})"
-
-        # Simultáneo: misma fecha inicio Y misma fecha clausura
-        if fi_a == fi_b and fc_a == fc_b:
-            coincidencias.append({"tipo": "simultaneo", "nombre": nombre_b})
-
-        # Solapado: rangos se superponen parcialmente (pero no son idénticos)
-        elif fi_a <= fc_b and fc_a >= fi_b and not (fi_a == fi_b and fc_a == fc_b):
-            coincidencias.append({"tipo": "solapado", "nombre": nombre_b})
-
+        if fi_a==fi_b and fc_a==fc_b:
+            coincidencias.append({"tipo":"simultaneo","nombre":nombre_b})
+        elif fi_a<=fc_b and fc_a>=fi_b and not (fi_a==fi_b and fc_a==fc_b):
+            coincidencias.append({"tipo":"solapado","nombre":nombre_b})
     return coincidencias
-
 
 def login_required(f):
     @wraps(f)
@@ -243,7 +198,7 @@ def logout():
 @login_required
 def index():
     seminarios = get_seminarios()
-    orden = request.args.get("orden", "id")
+    orden = request.args.get("orden","id")
     if orden == "fecha":
         seminarios.sort(key=lambda s: parse_date(s.get("fecha_inicio","")) or datetime(9999,1,1))
     elif orden == "fecha_desc":
@@ -255,8 +210,7 @@ def index():
 def nuevo_seminario():
     return render_template("formulario.html", seminario={}, master=get_master(),
                            materias=MATERIAS, modo="nuevo", db_id=None,
-                           coincidencias=[],
-                           conflictos_profesor={})
+                           coincidencias=[], conflictos_profesor={})
 
 @app.route("/seminario/<int:db_id>/editar")
 @login_required
@@ -264,12 +218,10 @@ def editar_seminario(db_id):
     s = get_seminario_by_dbid(db_id)
     if not s: return redirect(url_for("index"))
     todos = get_seminarios()
-    coincidencias        = detectar_coincidencias(s, todos)
-    conflictos_profesor  = detectar_conflictos_profesor(s, todos)
     return render_template("formulario.html", seminario=s, master=get_master(),
                            materias=MATERIAS, modo="editar", db_id=db_id,
-                           coincidencias=coincidencias,
-                           conflictos_profesor=conflictos_profesor)
+                           coincidencias=detectar_coincidencias(s,todos),
+                           conflictos_profesor=detectar_conflictos_profesor(s,todos))
 
 @app.route("/seminario/guardar", methods=["POST"])
 @login_required
@@ -279,8 +231,8 @@ def guardar_seminario():
     fi   = parse_date(data.get("fecha_inicio",""))
     fi2q = parse_date(data.get("fecha_inicio_2q",""))
     if fi and not fi2q:
-        fi2q = fi + timedelta(days=14); data["fecha_inicio_2q"] = fmt_date(fi2q)
-    if fi2q: data["fecha_clausura"] = fmt_date(fi2q + timedelta(days=11))
+        fi2q = fi+timedelta(days=14); data["fecha_inicio_2q"] = fmt_date(fi2q)
+    if fi2q: data["fecha_clausura"] = fmt_date(fi2q+timedelta(days=11))
     save_seminario(data, db_id=int(db_id) if db_id else None)
     flash("Seminario guardado correctamente.", "ok")
     return redirect(url_for("index"))
@@ -292,7 +244,6 @@ def eliminar_seminario(db_id):
     flash("Seminario eliminado.", "ok")
     return redirect(url_for("index"))
 
-# ── Eliminar múltiples seminarios ─────────────────────────────────────────────
 @app.route("/seminarios/eliminar-varios", methods=["POST"])
 @login_required
 def eliminar_varios_seminarios():
@@ -318,56 +269,76 @@ def admin_guardar():
         valor   = request.form.get("valor","").strip()
 
         if seccion in ("directores","profesores","honorarios"):
-            if accion == "agregar" and valor and valor not in master[seccion]:
+            if accion=="agregar" and valor and valor not in master[seccion]:
                 master[seccion].append(valor)
-            elif accion == "eliminar" and valor in master[seccion]:
+            elif accion=="eliminar" and valor in master[seccion]:
                 master[seccion].remove(valor)
-            elif accion == "importar":
-                lineas = [l.strip() for l in valor.splitlines() if l.strip()]
-                nuevos = [i for i in lineas if i not in master[seccion]]
+            elif accion=="importar":
+                lineas=[l.strip() for l in valor.splitlines() if l.strip()]
+                nuevos=[i for i in lineas if i not in master[seccion]]
                 master[seccion].extend(nuevos)
-                flash(f"{len(nuevos)} registros importados.", "ok")
-            elif accion == "ordenar":
-                master[seccion] = sorted(master[seccion], key=lambda x: x.lower())
-                flash("Lista ordenada alfabeticamente.", "ok")
-            elif accion == "borrar_todos":
-                master[seccion] = []
-                flash("Lista vaciada.", "ok")
-            elif accion == "eliminar_seleccionados":
-                seleccionados = request.form.getlist("seleccionados")
-                master[seccion] = [x for x in master[seccion] if x not in seleccionados]
-                flash(f"{len(seleccionados)} elemento(s) eliminado(s).", "ok")
+                flash(f"{len(nuevos)} registros importados.","ok")
+            elif accion=="ordenar":
+                master[seccion]=sorted(master[seccion],key=lambda x:x.lower())
+                flash("Lista ordenada alfabeticamente.","ok")
+            elif accion=="borrar_todos":
+                master[seccion]=[]; flash("Lista vaciada.","ok")
+            elif accion=="eliminar_seleccionados":
+                sel=request.form.getlist("seleccionados")
+                master[seccion]=[x for x in master[seccion] if x not in sel]
+                flash(f"{len(sel)} elemento(s) eliminado(s).","ok")
 
-        elif seccion == "paises":
-            pais = request.form.get("pais","").strip()
-            if accion == "agregar_pais" and valor and valor not in master["paises"]:
-                master["paises"][valor] = []
-            elif accion == "eliminar_pais" and valor in master["paises"]:
+        elif seccion=="paises":
+            pais=request.form.get("pais","").strip()
+            if "enlaces" not in master:
+                master["enlaces"] = {}
+            if accion=="agregar_pais" and valor and valor not in master["paises"]:
+                master["paises"][valor]=[]; master["enlaces"][valor]=[]
+            elif accion=="eliminar_pais" and valor in master["paises"]:
                 del master["paises"][valor]
-            elif accion == "agregar_sede" and pais in master["paises"]:
+                master["enlaces"].pop(valor, None)
+            elif accion=="agregar_sede" and pais in master["paises"]:
                 if valor and valor not in master["paises"][pais]:
                     master["paises"][pais].append(valor)
-            elif accion == "eliminar_sede" and pais in master["paises"]:
+            elif accion=="eliminar_sede" and pais in master["paises"]:
                 if valor in master["paises"][pais]:
                     master["paises"][pais].remove(valor)
-            elif accion == "importar_sedes" and pais in master["paises"]:
-                lineas = [l.strip() for l in valor.splitlines() if l.strip()]
-                nuevos = [i for i in lineas if i not in master["paises"][pais]]
+            elif accion=="importar_sedes" and pais in master["paises"]:
+                lineas=[l.strip() for l in valor.splitlines() if l.strip()]
+                nuevos=[i for i in lineas if i not in master["paises"][pais]]
                 master["paises"][pais].extend(nuevos)
-                flash(f"{len(nuevos)} sedes importadas.", "ok")
-            elif accion == "ordenar_sedes" and pais in master["paises"]:
-                master["paises"][pais] = sorted(master["paises"][pais], key=lambda x: x.lower())
-                flash("Sedes ordenadas alfabeticamente.", "ok")
-            elif accion == "eliminar_sedes_seleccionadas" and pais in master["paises"]:
-                seleccionados = request.form.getlist("seleccionados")
-                master["paises"][pais] = [x for x in master["paises"][pais] if x not in seleccionados]
-                flash(f"{len(seleccionados)} sede(s) eliminada(s).", "ok")
+                flash(f"{len(nuevos)} sedes importadas.","ok")
+            elif accion=="ordenar_sedes" and pais in master["paises"]:
+                master["paises"][pais]=sorted(master["paises"][pais],key=lambda x:x.lower())
+                flash("Sedes ordenadas.","ok")
+            elif accion=="eliminar_sedes_seleccionadas" and pais in master["paises"]:
+                sel=request.form.getlist("seleccionados")
+                master["paises"][pais]=[x for x in master["paises"][pais] if x not in sel]
+                flash(f"{len(sel)} sede(s) eliminada(s).","ok")
+            # ── Personas de enlace ──────────────────────────────────────────
+            elif accion=="agregar_enlace" and pais:
+                if pais not in master["enlaces"]: master["enlaces"][pais]=[]
+                if valor and valor not in master["enlaces"][pais]:
+                    master["enlaces"][pais].append(valor)
+            elif accion=="eliminar_enlace" and pais:
+                if pais in master["enlaces"] and valor in master["enlaces"][pais]:
+                    master["enlaces"][pais].remove(valor)
+            elif accion=="importar_enlaces" and pais:
+                if pais not in master["enlaces"]: master["enlaces"][pais]=[]
+                lineas=[l.strip() for l in valor.splitlines() if l.strip()]
+                nuevos=[i for i in lineas if i not in master["enlaces"][pais]]
+                master["enlaces"][pais].extend(nuevos)
+                flash(f"{len(nuevos)} personas de enlace importadas.","ok")
+            elif accion=="ordenar_enlaces" and pais:
+                if pais in master["enlaces"]:
+                    master["enlaces"][pais]=sorted(master["enlaces"][pais],key=lambda x:x.lower())
+                    flash("Personas de enlace ordenadas.","ok")
 
         save_master(master)
         if "_" not in accion:
-            flash("Datos guardados correctamente.", "ok")
+            flash("Datos guardados correctamente.","ok")
     except Exception as e:
-        flash(f"Error al guardar: {str(e)}", "error")
+        flash(f"Error al guardar: {str(e)}","error")
     return redirect(url_for("admin"))
 
 @app.route("/reporte")
@@ -375,121 +346,94 @@ def admin_guardar():
 def reporte():
     seminarios = get_seminarios()
     master     = get_master()
-
-    # ── Filtros desde query string ────────────────────────────────────────────
     f_pais     = request.args.get("pais","").strip()
     f_sede     = request.args.get("sede","").strip()
     f_director = request.args.get("director","").strip().lower()
     f_profesor = request.args.get("profesor","").strip().lower()
     f_fecha_desde = request.args.get("fecha_desde","").strip()
     f_fecha_hasta = request.args.get("fecha_hasta","").strip()
-    orden      = request.args.get("orden","fecha")  # fecha | pais | sede
-
-    fd = parse_date(f_fecha_desde)
-    fh = parse_date(f_fecha_hasta)
+    orden      = request.args.get("orden","fecha")
+    fd = parse_date(f_fecha_desde); fh = parse_date(f_fecha_hasta)
 
     def match(s):
-        if f_pais and s.get("pais","") != f_pais:
-            return False
-        if f_sede and s.get("sede","") != f_sede:
-            return False
+        if f_pais and s.get("pais","")!=f_pais: return False
+        if f_sede and s.get("sede","")!=f_sede: return False
         if f_director:
-            d1 = s.get("director1","").lower()
-            d2 = s.get("director2","").lower()
-            if f_director not in d1 and f_director not in d2:
-                return False
+            if f_director not in s.get("director1","").lower() and f_director not in s.get("director2","").lower(): return False
         if f_profesor:
-            # Buscar en todos los campos de profesor (las 3 opciones de las 4 materias)
-            encontrado = False
+            encontrado=False
             for qi in range(2):
                 for mi in range(2):
                     for opc in range(3):
-                        val = s.get(f"q{qi}_m{mi}_prof{opc}","").lower()
-                        if f_profesor in val:
-                            encontrado = True
-                            break
-            if not encontrado:
-                return False
-        fi = parse_date(s.get("fecha_inicio",""))
-        if fd and fi and fi < fd:
-            return False
-        if fh and fi and fi > fh:
-            return False
+                        if f_profesor in s.get(f"q{qi}_m{mi}_prof{opc}","").lower():
+                            encontrado=True; break
+            if not encontrado: return False
+        fi=parse_date(s.get("fecha_inicio",""))
+        if fd and fi and fi<fd: return False
+        if fh and fi and fi>fh: return False
         return True
 
-    resultados = [s for s in seminarios if match(s)]
+    resultados=[s for s in seminarios if match(s)]
 
-    # ── Ordenamiento ──────────────────────────────────────────────────────────
     def sort_key(s):
-        if orden == "pais":
-            return (s.get("pais",""), s.get("sede",""))
-        elif orden == "sede":
-            return (s.get("sede",""), s.get("pais",""))
-        else:  # fecha (default)
-            fi = parse_date(s.get("fecha_inicio",""))
+        if orden=="pais": return (s.get("pais",""),s.get("sede",""))
+        elif orden=="sede": return (s.get("sede",""),s.get("pais",""))
+        else:
+            fi=parse_date(s.get("fecha_inicio",""))
             return fi if fi else datetime(9999,1,1)
-
     resultados.sort(key=sort_key)
 
-    # Sedes disponibles según país seleccionado
-    sedes_disponibles = master["paises"].get(f_pais, []) if f_pais else []
-
+    sedes_disponibles=master["paises"].get(f_pais,[]) if f_pais else []
     return render_template("reporte.html",
-                           resultados=resultados,
-                           materias=MATERIAS,
+                           resultados=resultados, materias=MATERIAS,
                            paises=list(master["paises"].keys()),
                            sedes_disponibles=sedes_disponibles,
                            directores=master["directores"],
                            profesores=master["profesores"],
                            f_pais=f_pais, f_sede=f_sede,
-                           f_director=f_director,
-                           f_profesor=f_profesor,
-                           f_fecha_desde=f_fecha_desde,
-                           f_fecha_hasta=f_fecha_hasta,
-                           orden=orden,
-                           total=len(seminarios))
-
+                           f_director=f_director, f_profesor=f_profesor,
+                           f_fecha_desde=f_fecha_desde, f_fecha_hasta=f_fecha_hasta,
+                           orden=orden, total=len(seminarios))
 
 @app.route("/preview")
 @login_required
 def preview():
-    seminarios = get_seminarios()
-    sel_id = request.args.get("id", type=int)
-    sel = None
-    coincidencias = []
-    conflictos_profesor = {}
+    seminarios=get_seminarios()
+    sel_id=request.args.get("id",type=int)
+    sel=None; coincidencias=[]; conflictos_profesor={}
     if sel_id:
-        sel = next((s for s in seminarios if s.get("_db_id") == sel_id), None)
+        sel=next((s for s in seminarios if s.get("_db_id")==sel_id),None)
         if sel:
-            coincidencias       = detectar_coincidencias(sel, seminarios)
-            conflictos_profesor = detectar_conflictos_profesor(sel, seminarios)
+            coincidencias=detectar_coincidencias(sel,seminarios)
+            conflictos_profesor=detectar_conflictos_profesor(sel,seminarios)
     return render_template("preview.html",
                            seminarios=seminarios, sel=sel, sel_id=sel_id,
                            materias=MATERIAS, coincidencias=coincidencias,
                            conflictos_profesor=conflictos_profesor)
 
-
 @app.route("/debug/seminario/<int:db_id>")
 @login_required
 def debug_seminario(db_id):
-    s = get_seminario_by_dbid(db_id)
-    todos = get_seminarios()
-    conflictos = detectar_conflictos_profesor(s, todos)
-    # Mostrar claves del seminario y conflictos encontrados
-    claves_prof = {k: v for k, v in s.items() if 'prof' in k}
-    return jsonify({
-        "claves_prof_en_seminario": claves_prof,
-        "conflictos_encontrados": conflictos,
-        "fecha_inicio": s.get("fecha_inicio",""),
-        "total_seminarios": len(todos)
-    })
-
+    s=get_seminario_by_dbid(db_id); todos=get_seminarios()
+    conflictos=detectar_conflictos_profesor(s,todos)
+    claves_prof={k:v for k,v in s.items() if 'prof' in k}
+    return jsonify({"claves_prof_en_seminario":claves_prof,
+                    "conflictos_encontrados":conflictos,
+                    "fecha_inicio":s.get("fecha_inicio",""),
+                    "total_seminarios":len(todos)})
 
 @app.route("/api/sedes")
 @login_required
 def api_sedes():
-    pais = request.args.get("pais","")
-    return jsonify(get_master()["paises"].get(pais, []))
+    pais=request.args.get("pais","")
+    return jsonify(get_master()["paises"].get(pais,[]))
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT",5000)), debug=False)
+@app.route("/api/enlaces")
+@login_required
+def api_enlaces():
+    pais=request.args.get("pais","")
+    master=get_master()
+    return jsonify(master.get("enlaces",{}).get(pais,[]))
+
+if __name__=="__main__":
+    app.run(host="0.0.0.0",port=int(os.environ.get("PORT",5000)),debug=False)
